@@ -165,8 +165,8 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 - All money: `NUMERIC(10,2)`
 - All quantities: `NUMERIC(10,3)`
 - Timestamps: `TIMESTAMPTZ`
-- Soft deletes: `is_active` on root entities only (e.g., `customers`, `inventory_items`). Child records are not soft-deleted but are hidden from queries via SQL joins based on the active state of their parent root entity.
-- Append-only tables: `audit_logs`, `job_card_activities`, `po_status_history`, `payroll_entries`
+- Soft deletes: `is_active` on root entities only (e.g., `customers`, `inventory_items`). API `DELETE` endpoints for root entities perform this soft-delete. Hard deletes are restricted. Child records are not soft-deleted but are hidden from queries via SQL joins based on the active state of their parent root entity.
+- Append-only tables: `audit_logs`, `job_card_activities`, `po_status_history`, `payroll_entries`, `asset_defects`
 
 ### Complete Table List (41 tables, Tenant DB)
 
@@ -206,7 +206,7 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 
 **Purchasing:** 
 - `suppliers`: Parts and service vendors
-- `purchase_orders`: Offical requests to suppliers
+- `purchase_orders`: Official requests to suppliers
 - `purchase_order_items`: Line items in a PO
 - `po_approvals`: Internal logic for spending authorization
 - `po_status_history`: Immutable log of PO lifecycle
@@ -271,7 +271,6 @@ CREATE TABLE payroll_deduction_configs (
     updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ```
-*Total tenant DB tables: **41** (39 base + tenant_settings + payroll_deduction_configs)*
 
 ### Control DB (4 tables)
 `tenants`, `feature_flags`, `super_admin_users`, `control_audit_logs`
@@ -361,7 +360,7 @@ This is the most complex flow in the system. Every transition is server-enforced
     │         │  │ with defect notes. qa_cycles incremented. │
     │         │  └──────────────────────────────────────────┘
     └────┬────┘
-         │  Requires: QA PASS
+         │  Requires: QA PASS (and DVI submission if jobs.dvi_required = true)
          ▼
     ┌─────────┐
     │ BILLING │  Invoice generated from job items. Customer pays.
@@ -387,6 +386,7 @@ Every status change, assignment, approval, notification, and note is written to 
 | Create tenant settings | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Manage users & roles | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Create / edit bays | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Update bay status | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ |
 | Create job card (intake) | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ |
 | Assign mechanic / bay | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Build estimate (QUOTE) | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
@@ -559,6 +559,7 @@ GET    /api/v1/bays/board
 GET    /api/v1/settings/bays
 POST   /api/v1/settings/bays
 PUT    /api/v1/settings/bays/:id
+PUT    /api/v1/settings/bays/:id/status
 DELETE /api/v1/settings/bays/:id
 ```
 
@@ -584,6 +585,7 @@ GET    /api/v1/purchases/in-transit
 GET    /api/v1/purchases/export
 GET    /api/v1/purchases/:id
 PUT    /api/v1/purchases/:id
+GET    /api/v1/purchases/:id/history
 POST   /api/v1/purchases/:id/submit
 POST   /api/v1/purchases/:id/approve
 POST   /api/v1/purchases/:id/reject
@@ -613,10 +615,10 @@ GET    /api/v1/dvi/templates
 POST   /api/v1/dvi/templates
 PUT    /api/v1/dvi/templates/:id
 DELETE /api/v1/dvi/templates/:id
-POST   /api/v1/dvi/results
-GET    /api/v1/dvi/results/:id
-PUT    /api/v1/dvi/results/:id
-DELETE /api/v1/dvi/results/:id
+POST   /api/v1/jobs/:id/dvi/results
+GET    /api/v1/jobs/:id/dvi/results/:resultId
+PUT    /api/v1/jobs/:id/dvi/results/:resultId
+DELETE /api/v1/jobs/:id/dvi/results/:resultId
 ```
 
 ### Assets
@@ -650,6 +652,7 @@ GET    /api/v1/hr/payroll/periods/:id/export
 GET    /api/v1/hr/leave/requests
 POST   /api/v1/hr/leave/requests
 PUT    /api/v1/hr/leave/requests/:id
+DELETE /api/v1/hr/leave/requests/:id
 POST   /api/v1/hr/leave/requests/:id/approve
 POST   /api/v1/hr/leave/requests/:id/reject
 GET    /api/v1/hr/attendance
@@ -695,9 +698,9 @@ PUT    /api/v1/settings/notification-preferences
 
 ### Customer Portal
 ```
-GET    /api/v1/portal/jobs/:token
-POST   /api/v1/portal/jobs/:token/approve
-POST   /api/v1/portal/jobs/:token/callback
+POST   /api/v1/portal/jobs/access
+POST   /api/v1/portal/jobs/approve
+POST   /api/v1/portal/jobs/callback
 ```
 
 ---
@@ -1023,7 +1026,7 @@ Tenant setting: `document_retention_days` (NULL = keep forever, integer = delete
 `PUT /jobs/:id/assign-bay` uses a serializable sqlx transaction with `FOR UPDATE` on the target `service_bays` row. If bay is already `OCCUPIED` or `RESERVED`, returns `409` with current occupant job number. Frontend re-fetches bay board on 409 and shows toast: "Bay [code] just taken by [Job No] — please select another."
 
 ### D9 — Customer portal: Online estimate + change request approval
-When `module.customer_portal` is enabled, customers receive a short-lived signed approval token (32 bytes, cryptographically random, 48-hour expiry, single-use) via email or SMS. Token link opens a minimal portal page (no auth shell) showing estimate line items and total. Customer taps **Approve** or **Request Callback**. On approval, token immediately invalidated, `job_card_approvals` record created with `channel = EMAIL_LINK` or `SMS_LINK`. Same mechanism applies to mid-service change requests. New routes: `GET /portal/jobs/:token`, `POST /portal/jobs/:token/approve`, `POST /portal/jobs/:token/callback`. New columns on `job_card_approvals`: `portal_token TEXT UNIQUE`, `portal_token_expires_at TIMESTAMPTZ`.
+When `module.customer_portal` is enabled, customers receive a short-lived signed approval token (32 bytes, cryptographically random, 48-hour expiry, single-use) via email or SMS. Token link opens a minimal portal page (no auth shell) showing estimate line items and total. The frontend extracts the token from the URL and passes it securely to the `POST /api/v1/portal/jobs/access` endpoint. Customer taps **Approve** or **Request Callback**. On approval, token immediately invalidated, `job_card_approvals` record created with `channel = EMAIL_LINK` or `SMS_LINK`. Same mechanism applies to mid-service change requests. New routes: `POST /api/v1/portal/jobs/access`, `POST /api/v1/portal/jobs/approve`, `POST /api/v1/portal/jobs/callback` (expecting token in JSON body). New columns on `job_card_approvals`: `portal_token TEXT UNIQUE`, `portal_token_expires_at TIMESTAMPTZ`.
 
 ### D10 — Payroll: Configurable deduction components per tenant
 Deduction components defined in Settings → HR → Payroll Configuration. Each component: name, type (`PCT_OF_GROSS` | `FIXED_AMOUNT` | `SLAB`), value (`JSONB` — for slabs: `[{from, to, rate}]`), applies-to (employment type filter), active flag. Nepal defaults seeded on tenant creation: Income Tax (slab-based brackets), Provident Fund 10% (full-time only), SSF 1% (full-time only). Payroll run: Rust loads active configs, calculates per employee, stores breakdown in `payroll_entries.deductions JSONB`. New table: `payroll_deduction_configs`.
