@@ -169,7 +169,7 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 **Auth & Locations:** 
 - `users`: System users with roles and credentials
 - `locations`: Workshop physical locations
-- `tenant_settings`: Key-value store for all configurable tenant settings (SMTP, SMS, timezone, currency, retention)
+- `tenant_settings`: Key-value store for all configurable tenant settings (SMTP, SMS, timezone, currency, retention) (See D2, D3, D4, D6)
 
 **CRM:** 
 - `customers`: Vehicle owners and their contact profiles
@@ -228,7 +228,7 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 - `employees`: Staff profile data (linked to `users`)
 - `payroll_periods`: Monthly/weekly pay cycle records
 - `payroll_entries`: Individual salary calculations
-- `payroll_deduction_configs`: Configurable payroll deduction components per tenant
+- `payroll_deduction_configs`: Configurable payroll deduction components per tenant (See D10)
 - `leave_types`: Category of leaves (sick, annual, etc.)
 - `leave_requests`: Employee requests for time off
 - `attendance_records`: Clock-in/out log
@@ -380,7 +380,7 @@ Every status change, assignment, approval, notification, and note is written to 
 | Report asset defect | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ |
 | Manage employees (HR) | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
 | Run payroll | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
-| View own payslip | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| View own payslip | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Export any list to Excel | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ |
 | Import from Excel | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | View own job history (portal) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
@@ -394,32 +394,32 @@ Resolution order: Tenant override → Global default → `false`
 
 | Flag Key | Global Default | Description |
 |---|---|---|
-| `module.dvi` | Default on | Digital Vehicle Inspection |
-| `module.purchases` | Default on | Purchase Orders + GRN + QA |
-| `module.reports` | Default on | Report builder |
-| `module.hr` | Default off | HR records + payroll |
-| `module.assets` | Default off | Asset management |
-| `module.customer_portal` | Default off | Customer self-service portal |
-| `module.loyalty` | Default off | Loyalty points |
-| `jobs.intake_inspection` | Default on | Intake checklist |
-| `jobs.intake_signature` | Default on | Customer digital signature |
-| `jobs.bay_management` | Default on | Service bay tracking |
-| `jobs.approval_workflow` | Default on | Quote approval step |
-| `jobs.mid_service_approval` | Default on | Change request approvals |
-| `jobs.dvi_required` | Default off | Block billing until QA complete |
-| `jobs.notification_email` | Default on | Email customer notifications |
-| `jobs.notification_sms` | Default off | SMS customer notifications |
-| `inventory.low_stock_alerts` | Default on | Low stock push notifications |
-| `purchases.approval_required` | Default on | PO approval before sending |
-| `purchases.qa_required` | Default on | QA before stock-in |
-| `billing.vat` | Default off | VAT/tax line on invoices |
-| `billing.multi_currency` | Default off | Multi-currency |
-| `hr.payroll` | Default off | Payroll (requires module.hr) |
-| `hr.leave_management` | Default off | Leave management |
-| `hr.attendance` | Default off | Clock-in/out |
-| `assets.daily_inspection` | Default on | Daily inspection checklist |
-| `export.excel` | Default on | Excel export on all lists |
-| `import.excel` | Default on | Excel import for core entities |
+| `module.dvi` | `true` | Digital Vehicle Inspection |
+| `module.purchases` | `true` | Purchase Orders + GRN + QA |
+| `module.reports` | `true` | Report builder |
+| `module.hr` | `false` | HR records + payroll |
+| `module.assets` | `false` | Asset management |
+| `module.customer_portal` | `false` | Customer self-service portal |
+| `module.loyalty` | `false` | Loyalty points |
+| `jobs.intake_inspection` | `true` | Intake checklist |
+| `jobs.intake_signature` | `true` | Customer digital signature |
+| `jobs.bay_management` | `true` | Service bay tracking |
+| `jobs.approval_workflow` | `true` | Quote approval step |
+| `jobs.mid_service_approval` | `true` | Change request approvals |
+| `jobs.dvi_required` | `false` | Block billing until QA complete |
+| `jobs.notification_email` | `true` | Email customer notifications |
+| `jobs.notification_sms` | `false` | SMS customer notifications |
+| `inventory.low_stock_alerts` | `true` | Low stock push notifications |
+| `purchases.approval_required` | `true` | PO approval before sending |
+| `purchases.qa_required` | `true` | QA before stock-in |
+| `billing.vat` | `false` | VAT/tax line on invoices |
+| `billing.multi_currency` | `false` | Multi-currency |
+| `hr.payroll` | `false` | Payroll (requires module.hr) |
+| `hr.leave_management` | `false` | Leave management |
+| `hr.attendance` | `false` | Clock-in/out |
+| `assets.daily_inspection` | `true` | Daily inspection checklist |
+| `export.excel` | `true` | Excel export on all lists |
+| `import.excel` | `true` | Excel import for core entities |
 
 ---
 
@@ -484,6 +484,7 @@ GET    /api/v1/jobs/search
 GET    /api/v1/jobs/export
 GET    /api/v1/jobs/:id
 PUT    /api/v1/jobs/:id
+POST   /api/v1/jobs/:id/cancel
 POST   /api/v1/jobs/:id/transition
 PUT    /api/v1/jobs/:id/assign-mechanic
 PUT    /api/v1/jobs/:id/assign-bay
@@ -983,58 +984,3 @@ When `module.customer_portal` is enabled, customers receive a short-lived signed
 Deduction components defined in Settings → HR → Payroll Configuration. Each component: name, type (`PCT_OF_GROSS` | `FIXED_AMOUNT` | `SLAB`), value (`JSONB` — for slabs: `[{from, to, rate}]`), applies-to (employment type filter), active flag. Nepal defaults seeded on tenant creation: Income Tax (slab-based brackets), Provident Fund 10% (full-time only), SSF 1% (full-time only). Payroll run: Rust loads active configs, calculates per employee, stores breakdown in `payroll_entries.deductions JSONB`. New table: `payroll_deduction_configs`.
 
 ---
-
-## Part 15 — Additional Tables from Decisions
-
-The following tables were identified during the decisions process and must be added to the schema:
-
-| Table | Purpose | Decision Source |
-|---|---|---|
-| `tenant_settings` | Key-value store for all configurable tenant settings (SMTP, SMS, timezone, currency, retention) | D2, D3, D4, D6 |
-| `payroll_deduction_configs` | Configurable payroll deduction components per tenant | D10 |
-
-`tenant_settings` schema:
-```sql
-CREATE TABLE tenant_settings (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    key         TEXT NOT NULL,
-    value       TEXT,           -- encrypted where sensitive
-    is_encrypted BOOLEAN NOT NULL DEFAULT FALSE,
-    updated_by  UUID REFERENCES users(id) ON DELETE SET NULL,
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT tenant_settings_key_unique UNIQUE (key)
-);
-```
-
-`payroll_deduction_configs` schema:
-```sql
-CREATE TYPE deduction_type AS ENUM ('PCT_OF_GROSS', 'FIXED_AMOUNT', 'SLAB');
-
-CREATE TABLE payroll_deduction_configs (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name                TEXT NOT NULL,
-    type                deduction_type NOT NULL,
-    value               JSONB NOT NULL,
-    applies_to          employment_type[],  -- NULL = all types
-    sort_order          INTEGER NOT NULL DEFAULT 0,
-    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
-
-`job_card_approvals` additions (D9):
-```sql
--- Add to existing job_card_approvals table:
-portal_token            TEXT UNIQUE,
-portal_token_expires_at TIMESTAMPTZ,
-portal_token_used_at    TIMESTAMPTZ
-```
-
-`customer_signatures` additions (D6):
-```sql
--- Add to existing customer_signatures table:
-file_deleted_at     TIMESTAMPTZ   -- set by retention cleanup task, NULL = file exists
-```
-
-Total tenant DB tables: **41** (39 + tenant_settings + payroll_deduction_configs)
