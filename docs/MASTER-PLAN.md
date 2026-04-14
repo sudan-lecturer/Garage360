@@ -108,8 +108,10 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 | Excel Read | calamine |
 | Excel Write | rust_xlsxwriter |
 | Object Storage | object_store (S3-compatible) |
+| Async Tasks | tokio-cron-scheduler (background retention tasks) |
 | Email | lettre |
 | SMS | reqwest (HTTP to SMS gateway API) |
+| Real-time | Server-Sent Events (SSE) via `axum::response::sse` |
 | PDF Generation | printpdf |
 | Testing | tokio-test, sqlx test transactions |
 
@@ -131,6 +133,7 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 | Tables | TanStack Table v8 |
 | Excel Export | xlsx (SheetJS) |
 | HTTP Client | Axios + typed hooks |
+| Real-time | native EventSource (SSE) |
 | i18n | react-i18next |
 | Camera | react-webcam |
 | `signature pad` | react-signature-canvas |
@@ -139,6 +142,7 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 - **Algorithm**: HS256 for performance, with transition path to RS256 if external consumer support is needed.
 - **Key Storage**: Unique secret generated per tenant, stored encrypted in `control-db` (tenant registry) and cached in Redis.
 - **Rotation**: Keys can be rotated via Super Admin panel, which immediately invalidates all active sessions for that tenant.
+- **Refresh Strategy**: Validated via short-lived access tokens and refresh tokens tracked in Redis (one-time use, sliding window mapping to underlying TTL).
 - **Agility**: JWT header includes `kid` (Key ID) to support seamless key rotation.
 
 ### Error Handling Flow
@@ -161,7 +165,7 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 - All money: `NUMERIC(10,2)`
 - All quantities: `NUMERIC(10,3)`
 - Timestamps: `TIMESTAMPTZ`
-- Soft deletes: `is_active` on root entities only
+- Soft deletes: `is_active` on root entities only (e.g., `customers`, `inventory_items`). Child records are not soft-deleted but are hidden from queries via SQL joins based on the active state of their parent root entity.
 - Append-only tables: `audit_logs`, `job_card_activities`, `po_status_history`, `payroll_entries`
 
 ### Complete Table List (41 tables, Tenant DB)
@@ -239,12 +243,35 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 **Audit:** 
 - `audit_logs`: Detailed system-wide operation trail
 
-### Schema Updates (Existing Tenants)
-While Garage360 avoids incremental migrations for new tenants, updates to existing tenant schemas are handled as follows:
-1.  **Golden Schema**: `tenant_schema.sql` always represents the latest "perfect" state.
-2.  **Version Tracking**: Every tenant database has a `schema_version` in `tenant_settings`.
-3.  **Update Endpoint**: An internal `POST /control/v1/tenants/:id/sync-schema` endpoint compares current version and applies idempotent SQL diffs or runs specific upgrade scripts.
-4.  **No Down migrations**: Rollbacks are handled via database backups or forward-fixes only.
+### Core Supplemental Schemas
+```sql
+CREATE TYPE employment_type AS ENUM ('FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN');
+
+CREATE TABLE tenant_settings (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    key         TEXT NOT NULL,
+    value       TEXT,           -- encrypted where sensitive
+    is_encrypted BOOLEAN NOT NULL DEFAULT FALSE,
+    updated_by  UUID REFERENCES users(id) ON DELETE SET NULL,
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT tenant_settings_key_unique UNIQUE (key)
+);
+
+CREATE TYPE deduction_type AS ENUM ('PCT_OF_GROSS', 'FIXED_AMOUNT', 'SLAB');
+
+CREATE TABLE payroll_deduction_configs (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name                TEXT NOT NULL,
+    type                deduction_type NOT NULL,
+    value               JSONB NOT NULL,
+    applies_to          employment_type[],  -- NULL = all types
+    sort_order          INTEGER NOT NULL DEFAULT 0,
+    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+```
+*Total tenant DB tables: **41** (39 base + tenant_settings + payroll_deduction_configs)*
 
 ### Control DB (4 tables)
 `tenants`, `feature_flags`, `super_admin_users`, `control_audit_logs`
@@ -294,7 +321,7 @@ This is the most complex flow in the system. Every transition is server-enforced
     │         │  (keys, tyres, engine, odometer, lights, belongings, damage history).
     │         │  Optional: vehicle photos captured. Customer signs digitally.
     └────┬────┘
-         │  Requires: checklist complete + signature captured
+         │  Requires: checklist complete (+ signature captured if jobs.intake_signature = true)
          ▼
     ┌─────────┐
     │  AUDIT  │  Manager records complaint and diagnosis. Assigns mechanic.
@@ -381,9 +408,10 @@ Every status change, assignment, approval, notification, and note is written to 
 | Manage employees (HR) | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
 | Run payroll | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
 | View own payslip | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Export any list to Excel | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ |
-| Import from Excel | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| Export data (Excel) | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ |
+| Import data (Excel) | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | View own job history (portal) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
+| View Dashboard | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ |
 
 ---
 
@@ -437,6 +465,12 @@ PUT    /control/v1/tenants/:id                   Update tenant
 DELETE /control/v1/tenants/:id                   Deactivate tenant
 PUT    /control/v1/feature-flags/:key            Set global default
 PUT    /control/v1/tenants/:id/feature-flags/:key  Set tenant override
+```
+
+### System & Health
+```
+GET    /health/liveness                          Basic process availability
+GET    /health/readiness                         DB and Redis connection health
 ```
 
 ### Auth
@@ -510,6 +544,8 @@ GET    /api/v1/jobs/:id/qa/history
 ```
 GET    /api/v1/jobs/:id/intake/template
 POST   /api/v1/jobs/:id/intake/checklist
+GET    /api/v1/jobs/:id/intake/photos
+GET    /api/v1/jobs/:id/intake/photos/download
 POST   /api/v1/jobs/:id/intake/photos
 DELETE /api/v1/jobs/:id/intake/photos/:photoId
 POST   /api/v1/jobs/:id/intake/signature
@@ -523,7 +559,6 @@ GET    /api/v1/bays/board
 GET    /api/v1/settings/bays
 POST   /api/v1/settings/bays
 PUT    /api/v1/settings/bays/:id
-PUT    /api/v1/settings/bays/:id/status
 DELETE /api/v1/settings/bays/:id
 ```
 
@@ -564,7 +599,7 @@ POST   /api/v1/purchases/:id/grn/:grnId/qa
 GET    /api/v1/invoices
 GET    /api/v1/invoices/export
 GET    /api/v1/invoices/:id
-POST   /api/v1/invoices
+POST   /api/v1/jobs/:id/invoices                -- Generate from job card
 PUT    /api/v1/invoices/:id
 POST   /api/v1/invoices/:id/issue
 POST   /api/v1/invoices/:id/payment
@@ -581,6 +616,7 @@ DELETE /api/v1/dvi/templates/:id
 POST   /api/v1/dvi/results
 GET    /api/v1/dvi/results/:id
 PUT    /api/v1/dvi/results/:id
+DELETE /api/v1/dvi/results/:id
 ```
 
 ### Assets
@@ -614,6 +650,8 @@ GET    /api/v1/hr/payroll/periods/:id/export
 GET    /api/v1/hr/leave/requests
 POST   /api/v1/hr/leave/requests
 PUT    /api/v1/hr/leave/requests/:id
+POST   /api/v1/hr/leave/requests/:id/approve
+POST   /api/v1/hr/leave/requests/:id/reject
 GET    /api/v1/hr/attendance
 POST   /api/v1/hr/attendance/clock-in
 POST   /api/v1/hr/attendance/clock-out
@@ -653,6 +691,13 @@ GET    /api/v1/settings/feature-flags
 PUT    /api/v1/settings/feature-flags/:key
 GET    /api/v1/settings/notification-preferences
 PUT    /api/v1/settings/notification-preferences
+```
+
+### Customer Portal
+```
+GET    /api/v1/portal/jobs/:token
+POST   /api/v1/portal/jobs/:token/approve
+POST   /api/v1/portal/jobs/:token/callback
 ```
 
 ---
