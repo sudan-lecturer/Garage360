@@ -71,6 +71,20 @@ React    Rust API
 
 No migration-runner service. Each new tenant database is provisioned and seeded with the complete schema via the API's tenant provisioning endpoint, which runs the schema creation SQL directly. No incremental migrations needed — fresh schema every time.
 
+### Monitoring & Observability
+- **Health Checks**: `/health/liveness` and `/health/readiness` endpoints on API and background services.
+- **Metrics**: Prometheus metrics exported via `axum-prometheus` (latencies, request counts, errors, DB pool stats).
+- **Logging**: Structured JSON logging via `tracing` crate with `correlation_id` propagated across all spans.
+- **Tracing**: Distributed tracing via OpenTelemetry (OTLP) to Jaeger or Honeycomb for request lifecycle visibility.
+
+### Caching Strategy (Redis)
+- **Pattern**: Cache-aside (Lazy loading). API checks Redis first; if miss, fetch from DB and populate Redis.
+- **TTL Policies**:
+    - **Feature Flags**: 5 minutes (allows relatively quick global/tenant updates).
+    - **Tenant Settings**: 15 minutes (low churn data).
+    - **JWT Blocklist**: Matches remaining JWT expiry.
+- **Invalidation**: Explicit `DEL` on relevant keys during update operations (`PUT /feature-flags`, `PUT /settings`).
+
 ---
 
 ## Part 3 — Technology Decisions (Final, No Changes)
@@ -90,7 +104,7 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 | Logging | tracing + tracing-subscriber |
 | Config | dotenvy + config |
 | Redis | redis (async) |
-| UUID | uuid v7 (time-sortable PKs) |
+| `uuid` | uuid v7 (time-sortable PKs, requires v0.12+) |
 | Excel Read | calamine |
 | Excel Write | rust_xlsxwriter |
 | Object Storage | object_store (S3-compatible) |
@@ -119,7 +133,23 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 | HTTP Client | Axios + typed hooks |
 | i18n | react-i18next |
 | Camera | react-webcam |
-| Signature Pad | react-signature-canvas |
+| `signature pad` | react-signature-canvas |
+
+### JWT Security & Key Management
+- **Algorithm**: HS256 for performance, with transition path to RS256 if external consumer support is needed.
+- **Key Storage**: Unique secret generated per tenant, stored encrypted in `control-db` (tenant registry) and cached in Redis.
+- **Rotation**: Keys can be rotated via Super Admin panel, which immediately invalidates all active sessions for that tenant.
+- **Agility**: JWT header includes `kid` (Key ID) to support seamless key rotation.
+
+### Error Handling Flow
+- **Structure**: Consistent RFC 7807 (Problem Details for HTTP APIs) JSON responses.
+- **Mapping**:
+    - `400 Bad Request`: Validation errors (provided by `validator` crate) with field-specific messages.
+    - `401 Unauthorized`: Missing or invalid JWT.
+    - `403 Forbidden`: Valid JWT but insufficient RBAC permissions or feature flag disabled.
+    - `409 Conflict`: Business rule violation or optimistic locking failure (e.g., bay already occupied).
+    - `500 Internal Server Error`: Unhandled DB or system errors, returns a `request_id` for log correlation.
+- **Flow**: Service layer returns custom `Error` enum (via `thiserror`) → Handler maps to Axum `Response` with appropriate status code.
 
 ---
 
@@ -134,21 +164,87 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 - Soft deletes: `is_active` on root entities only
 - Append-only tables: `audit_logs`, `job_card_activities`, `po_status_history`, `payroll_entries`
 
-### Complete Table List (39 tables, Tenant DB)
-**Auth & Locations:** `users`, `locations`
-**CRM:** `customers`, `vehicles`
-**Job Core:** `job_cards`, `job_card_items`, `job_card_activities`, `job_card_approvals`
-**Intake:** `intake_checklist_templates`, `intake_checklists`, `intake_checklist_responses`, `intake_photos`, `customer_signatures`
-**Bays:** `service_bays`
-**Change Requests:** `job_change_requests`, `job_change_request_items`
-**Inventory:** `inventory_items`, `stock_alerts`, `stock_adjustments`
-**Purchasing:** `suppliers`, `purchase_orders`, `purchase_order_items`, `po_approvals`, `po_status_history`, `goods_receipt_notes`, `grn_items`, `qa_inspections`
-**Billing:** `invoices`, `invoice_line_items`
-**DVI:** `dvi_templates`, `dvi_results`
-**Assets:** `assets`, `asset_inspection_templates`, `asset_inspections`, `asset_defects`
-**HR:** `employees`, `payroll_periods`, `payroll_entries`, `leave_types`, `leave_requests`, `attendance_records`
-**Reports:** `saved_reports`
-**Audit:** `audit_logs`
+### Complete Table List (41 tables, Tenant DB)
+
+**Auth & Locations:** 
+- `users`: System users with roles and credentials
+- `locations`: Workshop physical locations
+- `tenant_settings`: Key-value store for all configurable tenant settings (SMTP, SMS, timezone, currency, retention)
+
+**CRM:** 
+- `customers`: Vehicle owners and their contact profiles
+- `vehicles`: Individual vehicle records linked to customers
+
+**Job Core:** 
+- `job_cards`: Main job records and lifecycle status
+- `job_card_items`: Line items (parts/labour) per job
+- `job_card_activities`: Immutable audit trail of every status change
+- `job_card_approvals`: Record of customer approval for estimates
+
+**Intake:** 
+- `intake_checklist_templates`: Configurable checklists for vehicle arrival
+- `intake_checklists`: Completed checklists for specific jobs
+- `intake_checklist_responses`: Individual answers in a checklist
+- `intake_photos`: Photos of vehicle damage or condition on arrival
+- `customer_signatures`: Digital signatures for intake authorization
+
+**Bays:** 
+- `service_bays`: Physical workshop bays and their current occupancy
+
+**Change Requests:** 
+- `job_change_requests`: Requests for additional work found during service
+- `job_change_request_items`: Line items for mid-service changes
+
+**Inventory:** 
+- `inventory_items`: Parts and consumables catalog
+- `stock_alerts`: Automated notifications for low stock
+- `stock_adjustments`: Manual corrections to stock levels
+
+**Purchasing:** 
+- `suppliers`: Parts and service vendors
+- `purchase_orders`: Offical requests to suppliers
+- `purchase_order_items`: Line items in a PO
+- `po_approvals`: Internal logic for spending authorization
+- `po_status_history`: Immutable log of PO lifecycle
+- `goods_receipt_notes`: Records of stock received from suppliers
+- `grn_items`: Quantities received per GRN
+- `qa_inspections`: Quality check results for received parts
+
+**Billing:** 
+- `invoices`: Sales documents for customers
+- `invoice_line_items`: Line items mirrored from job card at billing time
+
+**DVI:** 
+- `dvi_templates`: Configurable structure for digital vehicle inspections
+- `dvi_results`: Findings and mechanic notes from inspections
+
+**Assets:** 
+- `assets`: Workshop equipment (lifts, compressors, etc.)
+- `asset_inspection_templates`: Checklists for regular asset maintenance
+- `asset_inspections`: Completion records of asset checks
+- `asset_defects`: Logged issues with workshop equipment
+
+**HR:** 
+- `employees`: Staff profile data (linked to `users`)
+- `payroll_periods`: Monthly/weekly pay cycle records
+- `payroll_entries`: Individual salary calculations
+- `payroll_deduction_configs`: Configurable payroll deduction components per tenant
+- `leave_types`: Category of leaves (sick, annual, etc.)
+- `leave_requests`: Employee requests for time off
+- `attendance_records`: Clock-in/out log
+
+**Reports:** 
+- `saved_reports`: User-configured report filters and settings
+
+**Audit:** 
+- `audit_logs`: Detailed system-wide operation trail
+
+### Schema Updates (Existing Tenants)
+While Garage360 avoids incremental migrations for new tenants, updates to existing tenant schemas are handled as follows:
+1.  **Golden Schema**: `tenant_schema.sql` always represents the latest "perfect" state.
+2.  **Version Tracking**: Every tenant database has a `schema_version` in `tenant_settings`.
+3.  **Update Endpoint**: An internal `POST /control/v1/tenants/:id/sync-schema` endpoint compares current version and applies idempotent SQL diffs or runs specific upgrade scripts.
+4.  **No Down migrations**: Rollbacks are handled via database backups or forward-fixes only.
 
 ### Control DB (4 tables)
 `tenants`, `feature_flags`, `super_admin_users`, `control_audit_logs`
@@ -298,32 +394,32 @@ Resolution order: Tenant override → Global default → `false`
 
 | Flag Key | Global Default | Description |
 |---|---|---|
-| `module.dvi` | `true` | Digital Vehicle Inspection |
-| `module.purchases` | `true` | Purchase Orders + GRN + QA |
-| `module.reports` | `true` | Report builder |
-| `module.hr` | `false` | HR records + payroll |
-| `module.assets` | `false` | Asset management |
-| `module.customer_portal` | `false` | Customer self-service portal |
-| `module.loyalty` | `false` | Loyalty points |
-| `jobs.intake_inspection` | `true` | Intake checklist |
-| `jobs.intake_signature` | `true` | Customer digital signature |
-| `jobs.bay_management` | `true` | Service bay tracking |
-| `jobs.approval_workflow` | `true` | Quote approval step |
-| `jobs.mid_service_approval` | `true` | Change request approvals |
-| `jobs.dvi_required` | `false` | Block billing until QA complete |
-| `jobs.notification_email` | `true` | Email customer notifications |
-| `jobs.notification_sms` | `false` | SMS customer notifications |
-| `inventory.low_stock_alerts` | `true` | Low stock push notifications |
-| `purchases.approval_required` | `true` | PO approval before sending |
-| `purchases.qa_required` | `true` | QA before stock-in |
-| `billing.vat` | `false` | VAT/tax line on invoices |
-| `billing.multi_currency` | `false` | Multi-currency |
-| `hr.payroll` | `false` | Payroll (requires module.hr) |
-| `hr.leave_management` | `false` | Leave management |
-| `hr.attendance` | `false` | Clock-in/out |
-| `assets.daily_inspection` | `true` | Daily inspection checklist |
-| `export.excel` | `true` | Excel export on all lists |
-| `import.excel` | `true` | Excel import for core entities |
+| `module.dvi` | Default on | Digital Vehicle Inspection |
+| `module.purchases` | Default on | Purchase Orders + GRN + QA |
+| `module.reports` | Default on | Report builder |
+| `module.hr` | Default off | HR records + payroll |
+| `module.assets` | Default off | Asset management |
+| `module.customer_portal` | Default off | Customer self-service portal |
+| `module.loyalty` | Default off | Loyalty points |
+| `jobs.intake_inspection` | Default on | Intake checklist |
+| `jobs.intake_signature` | Default on | Customer digital signature |
+| `jobs.bay_management` | Default on | Service bay tracking |
+| `jobs.approval_workflow` | Default on | Quote approval step |
+| `jobs.mid_service_approval` | Default on | Change request approvals |
+| `jobs.dvi_required` | Default off | Block billing until QA complete |
+| `jobs.notification_email` | Default on | Email customer notifications |
+| `jobs.notification_sms` | Default off | SMS customer notifications |
+| `inventory.low_stock_alerts` | Default on | Low stock push notifications |
+| `purchases.approval_required` | Default on | PO approval before sending |
+| `purchases.qa_required` | Default on | QA before stock-in |
+| `billing.vat` | Default off | VAT/tax line on invoices |
+| `billing.multi_currency` | Default off | Multi-currency |
+| `hr.payroll` | Default off | Payroll (requires module.hr) |
+| `hr.leave_management` | Default off | Leave management |
+| `hr.attendance` | Default off | Clock-in/out |
+| `assets.daily_inspection` | Default on | Daily inspection checklist |
+| `export.excel` | Default on | Excel export on all lists |
+| `import.excel` | Default on | Excel import for core entities |
 
 ---
 
