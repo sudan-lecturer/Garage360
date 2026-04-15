@@ -1,0 +1,36 @@
+# Build outputs
+/target/
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+.web-server/
+
+# Build
+dist/
+build/
+*.tgz
+
+# Credentials
+*.pem
+*.key
+credentials.json

@@ -1,0 +1,125 @@
+version: "3.9"
+
+services:
+  nginx:
+    build:
+      context: ./docker
+      dockerfile: nginx.dev.Dockerfile
+    container_name: garage360-nginx-dev
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./web:/var/www/html:ro
+    depends_on:
+      - api
+    networks:
+      - garage360
+
+  api:
+    build:
+      context: ./docker
+      dockerfile: api.dev.Dockerfile
+    container_name: garage360-api-dev
+    working_dir: /app
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@control-db:5432/control
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+      - RUST_LOG=debug
+    volumes:
+      - ./api:/app
+      - cargo-cache:/usr/local/cargo/registry
+    ports:
+      - "8080:8080"
+    depends_on:
+      control-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - garage360
+
+  web:
+    image: node:20-alpine
+    container_name: garage360-web-dev
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host"
+    environment:
+      - VITE_API_URL=http://localhost:8080
+    volumes:
+      - ./web:/app
+      - node-cache:/app/node_modules
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+    networks:
+      - garage360
+
+  control-db:
+    image: postgres:16-alpine
+    container_name: garage360-control-db-dev
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=control
+    volumes:
+      - control-db-data-dev:/var/lib/postgresql/data
+      - ./api/schema/control-db.sql:/docker-entrypoint-initdb.d/control-db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - garage360
+
+  redis:
+    image: redis:7-alpine
+    container_name: garage360-redis-dev
+    volumes:
+      - redis-data-dev:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - garage360
+
+  minio:
+    image: minio/minio:latest
+    container_name: garage360-minio-dev
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio-data-dev:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - garage360
+
+volumes:
+  control-db-data-dev:
+  redis-data-dev:
+  minio-data-dev:
+  cargo-cache:
+  node-cache:
+
+networks:
+  garage360:
+    driver: bridge

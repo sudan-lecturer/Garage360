@@ -71,20 +71,6 @@ React    Rust API
 
 No migration-runner service. Each new tenant database is provisioned and seeded with the complete schema via the API's tenant provisioning endpoint, which runs the schema creation SQL directly. No incremental migrations needed — fresh schema every time.
 
-### Monitoring & Observability
-- **Health Checks**: `/health/liveness` and `/health/readiness` endpoints on API and background services.
-- **Metrics**: Prometheus metrics exported via `axum-prometheus` (latencies, request counts, errors, DB pool stats).
-- **Logging**: Structured JSON logging via `tracing` crate with `correlation_id` propagated across all spans.
-- **Tracing**: Distributed tracing via OpenTelemetry (OTLP) to Jaeger or Honeycomb for request lifecycle visibility.
-
-### Caching Strategy (Redis)
-- **Pattern**: Cache-aside (Lazy loading). API checks Redis first; if miss, fetch from DB and populate Redis.
-- **TTL Policies**:
-    - **Feature Flags**: 5 minutes (allows relatively quick global/tenant updates).
-    - **Tenant Settings**: 15 minutes (low churn data).
-    - **JWT Blocklist**: Matches remaining JWT expiry.
-- **Invalidation**: Explicit `DEL` on relevant keys during update operations (`PUT /feature-flags`, `PUT /settings`).
-
 ---
 
 ## Part 3 — Technology Decisions (Final, No Changes)
@@ -104,14 +90,12 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 | Logging | tracing + tracing-subscriber |
 | Config | dotenvy + config |
 | Redis | redis (async) |
-| `uuid` | uuid v7 (time-sortable PKs, requires v0.12+) |
+| UUID | uuid v7 (time-sortable PKs) |
 | Excel Read | calamine |
 | Excel Write | rust_xlsxwriter |
 | Object Storage | object_store (S3-compatible) |
-| Async Tasks | tokio-cron-scheduler (background retention tasks) |
 | Email | lettre |
 | SMS | reqwest (HTTP to SMS gateway API) |
-| Real-time | Server-Sent Events (SSE) via `axum::response::sse` |
 | PDF Generation | printpdf |
 | Testing | tokio-test, sqlx test transactions |
 
@@ -133,27 +117,9 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 | Tables | TanStack Table v8 |
 | Excel Export | xlsx (SheetJS) |
 | HTTP Client | Axios + typed hooks |
-| Real-time | native EventSource (SSE) |
 | i18n | react-i18next |
 | Camera | react-webcam |
-| `signature pad` | react-signature-canvas |
-
-### JWT Security & Key Management
-- **Algorithm**: HS256 for performance, with transition path to RS256 if external consumer support is needed.
-- **Key Storage**: Unique secret generated per tenant, stored encrypted in `control-db` (tenant registry) and cached in Redis.
-- **Rotation**: Keys can be rotated via Super Admin panel, which immediately invalidates all active sessions for that tenant.
-- **Refresh Strategy**: Validated via short-lived access tokens and refresh tokens tracked in Redis (one-time use, sliding window mapping to underlying TTL).
-- **Agility**: JWT header includes `kid` (Key ID) to support seamless key rotation.
-
-### Error Handling Flow
-- **Structure**: Consistent RFC 7807 (Problem Details for HTTP APIs) JSON responses.
-- **Mapping**:
-    - `400 Bad Request`: Validation errors (provided by `validator` crate) with field-specific messages.
-    - `401 Unauthorized`: Missing or invalid JWT.
-    - `403 Forbidden`: Valid JWT but insufficient RBAC permissions or feature flag disabled.
-    - `409 Conflict`: Business rule violation or optimistic locking failure (e.g., bay already occupied).
-    - `500 Internal Server Error`: Unhandled DB or system errors, returns a `request_id` for log correlation.
-- **Flow**: Service layer returns custom `Error` enum (via `thiserror`) → Handler maps to Axum `Response` with appropriate status code.
+| Signature Pad | react-signature-canvas |
 
 ---
 
@@ -165,112 +131,28 @@ No migration-runner service. Each new tenant database is provisioned and seeded 
 - All money: `NUMERIC(10,2)`
 - All quantities: `NUMERIC(10,3)`
 - Timestamps: `TIMESTAMPTZ`
-- Soft deletes: `is_active` on root entities only (e.g., `customers`, `inventory_items`). API `DELETE` endpoints for root entities perform this soft-delete. Hard deletes are restricted. Child records are not soft-deleted but are hidden from queries via SQL joins based on the active state of their parent root entity.
+- Soft deletes: `is_active` on root entities only
 - Append-only tables: `audit_logs`, `job_card_activities`, `po_status_history`, `payroll_entries`, `asset_defects`
 
-### Complete Table List (41 tables, Tenant DB)
+### Complete Table List (45 tables, Tenant DB)
+**Auth & Locations:** `users`, `locations`, `tenant_settings`
+**CRM:** `customers`, `vehicles`
+**Job Core:** `job_cards`, `job_card_items`, `job_card_activities`, `job_card_approvals`
+**Intake:** `intake_checklist_templates`, `intake_checklists`, `intake_checklist_responses`, `intake_photos`, `customer_signatures`
+**Bays:** `service_bays`
+**Change Requests:** `job_change_requests`, `job_change_request_items`
+**Inventory:** `inventory_items`, `stock_alerts`, `stock_adjustments`
+**Purchasing:** `suppliers`, `purchase_orders`, `purchase_order_items`, `po_approvals`, `po_status_history`, `goods_receipt_notes`, `grn_items`, `qa_inspections`
+**Billing:** `invoices`, `invoice_line_items`
+**DVI:** `dvi_templates`, `dvi_results`
+**Assets:** `assets`, `asset_inspection_templates`, `asset_inspections`, `asset_defects`
+**HR:** `employees`, `payroll_periods`, `payroll_entries`, `payroll_deduction_configs`, `leave_types`, `leave_requests`, `attendance_records`
+**Reports:** `saved_reports`
+**Audit:** `audit_logs`
 
-**Auth & Locations:** 
-- `users`: System users with roles and credentials
-- `locations`: Workshop physical locations
-- `tenant_settings`: Key-value store for all configurable tenant settings (SMTP, SMS, timezone, currency, retention) (See D2, D3, D4, D6)
-
-**CRM:** 
-- `customers`: Vehicle owners and their contact profiles
-- `vehicles`: Individual vehicle records linked to customers
-
-**Job Core:** 
-- `job_cards`: Main job records and lifecycle status
-- `job_card_items`: Line items (parts/labour) per job
-- `job_card_activities`: Immutable audit trail of every status change
-- `job_card_approvals`: Record of customer approval for estimates
-
-**Intake:** 
-- `intake_checklist_templates`: Configurable checklists for vehicle arrival
-- `intake_checklists`: Completed checklists for specific jobs
-- `intake_checklist_responses`: Individual answers in a checklist
-- `intake_photos`: Photos of vehicle damage or condition on arrival
-- `customer_signatures`: Digital signatures for intake authorization
-
-**Bays:** 
-- `service_bays`: Physical workshop bays and their current occupancy
-
-**Change Requests:** 
-- `job_change_requests`: Requests for additional work found during service
-- `job_change_request_items`: Line items for mid-service changes
-
-**Inventory:** 
-- `inventory_items`: Parts and consumables catalog
-- `stock_alerts`: Automated notifications for low stock
-- `stock_adjustments`: Manual corrections to stock levels
-
-**Purchasing:** 
-- `suppliers`: Parts and service vendors
-- `purchase_orders`: Official requests to suppliers
-- `purchase_order_items`: Line items in a PO
-- `po_approvals`: Internal logic for spending authorization
-- `po_status_history`: Immutable log of PO lifecycle
-- `goods_receipt_notes`: Records of stock received from suppliers
-- `grn_items`: Quantities received per GRN
-- `qa_inspections`: Quality check results for received parts
-
-**Billing:** 
-- `invoices`: Sales documents for customers
-- `invoice_line_items`: Line items mirrored from job card at billing time
-
-**DVI:** 
-- `dvi_templates`: Configurable structure for digital vehicle inspections
-- `dvi_results`: Findings and mechanic notes from inspections
-
-**Assets:** 
-- `assets`: Workshop equipment (lifts, compressors, etc.)
-- `asset_inspection_templates`: Checklists for regular asset maintenance
-- `asset_inspections`: Completion records of asset checks
-- `asset_defects`: Logged issues with workshop equipment
-
-**HR:** 
-- `employees`: Staff profile data (linked to `users`)
-- `payroll_periods`: Monthly/weekly pay cycle records
-- `payroll_entries`: Individual salary calculations
-- `payroll_deduction_configs`: Configurable payroll deduction components per tenant (See D10)
-- `leave_types`: Category of leaves (sick, annual, etc.)
-- `leave_requests`: Employee requests for time off
-- `attendance_records`: Clock-in/out log
-
-**Reports:** 
-- `saved_reports`: User-configured report filters and settings
-
-**Audit:** 
-- `audit_logs`: Detailed system-wide operation trail
-
-### Core Supplemental Schemas
-```sql
-CREATE TYPE employment_type AS ENUM ('FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN');
-
-CREATE TABLE tenant_settings (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    key         TEXT NOT NULL,
-    value       TEXT,           -- encrypted where sensitive
-    is_encrypted BOOLEAN NOT NULL DEFAULT FALSE,
-    updated_by  UUID REFERENCES users(id) ON DELETE SET NULL,
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT tenant_settings_key_unique UNIQUE (key)
-);
-
-CREATE TYPE deduction_type AS ENUM ('PCT_OF_GROSS', 'FIXED_AMOUNT', 'SLAB');
-
-CREATE TABLE payroll_deduction_configs (
-    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name                TEXT NOT NULL,
-    type                deduction_type NOT NULL,
-    value               JSONB NOT NULL,
-    applies_to          employment_type[],  -- NULL = all types
-    sort_order          INTEGER NOT NULL DEFAULT 0,
-    is_active           BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-```
+### Core Types
+`employment_type` ENUM ('FULL_TIME', 'PART_TIME', 'CONTRACT', 'INTERN')
+`deduction_type` ENUM ('PCT_OF_GROSS', 'FIXED_AMOUNT', 'SLAB')
 
 ### Control DB (4 tables)
 `tenants`, `feature_flags`, `super_admin_users`, `control_audit_logs`
@@ -320,7 +202,7 @@ This is the most complex flow in the system. Every transition is server-enforced
     │         │  (keys, tyres, engine, odometer, lights, belongings, damage history).
     │         │  Optional: vehicle photos captured. Customer signs digitally.
     └────┬────┘
-         │  Requires: checklist complete (+ signature captured if jobs.intake_signature = true)
+         │  Requires: checklist complete + signature captured
          ▼
     ┌─────────┐
     │  AUDIT  │  Manager records complaint and diagnosis. Assigns mechanic.
@@ -360,7 +242,7 @@ This is the most complex flow in the system. Every transition is server-enforced
     │         │  │ with defect notes. qa_cycles incremented. │
     │         │  └──────────────────────────────────────────┘
     └────┬────┘
-         │  Requires: QA PASS (and DVI submission if jobs.dvi_required = true)
+         │  Requires: QA PASS
          ▼
     ┌─────────┐
     │ BILLING │  Invoice generated from job items. Customer pays.
@@ -386,7 +268,6 @@ Every status change, assignment, approval, notification, and note is written to 
 | Create tenant settings | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Manage users & roles | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Create / edit bays | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| Update bay status | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ |
 | Create job card (intake) | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ |
 | Assign mechanic / bay | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | Build estimate (QUOTE) | ✓ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ |
@@ -407,11 +288,10 @@ Every status change, assignment, approval, notification, and note is written to 
 | Report asset defect | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ |
 | Manage employees (HR) | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
 | Run payroll | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
-| View own payslip | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Export data (Excel) | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ |
-| Import data (Excel) | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| View own payslip | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ |
+| Export any list to Excel | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ |
+| Import from Excel | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ |
 | View own job history (portal) | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
-| View Dashboard | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ |
 
 ---
 
@@ -465,12 +345,6 @@ PUT    /control/v1/tenants/:id                   Update tenant
 DELETE /control/v1/tenants/:id                   Deactivate tenant
 PUT    /control/v1/feature-flags/:key            Set global default
 PUT    /control/v1/tenants/:id/feature-flags/:key  Set tenant override
-```
-
-### System & Health
-```
-GET    /health/liveness                          Basic process availability
-GET    /health/readiness                         DB and Redis connection health
 ```
 
 ### Auth
@@ -544,8 +418,6 @@ GET    /api/v1/jobs/:id/qa/history
 ```
 GET    /api/v1/jobs/:id/intake/template
 POST   /api/v1/jobs/:id/intake/checklist
-GET    /api/v1/jobs/:id/intake/photos
-GET    /api/v1/jobs/:id/intake/photos/download
 POST   /api/v1/jobs/:id/intake/photos
 DELETE /api/v1/jobs/:id/intake/photos/:photoId
 POST   /api/v1/jobs/:id/intake/signature
@@ -601,7 +473,7 @@ POST   /api/v1/purchases/:id/grn/:grnId/qa
 GET    /api/v1/invoices
 GET    /api/v1/invoices/export
 GET    /api/v1/invoices/:id
-POST   /api/v1/jobs/:id/invoices                -- Generate from job card
+POST   /api/v1/invoices
 PUT    /api/v1/invoices/:id
 POST   /api/v1/invoices/:id/issue
 POST   /api/v1/invoices/:id/payment
@@ -615,10 +487,10 @@ GET    /api/v1/dvi/templates
 POST   /api/v1/dvi/templates
 PUT    /api/v1/dvi/templates/:id
 DELETE /api/v1/dvi/templates/:id
-POST   /api/v1/jobs/:id/dvi/results
-GET    /api/v1/jobs/:id/dvi/results/:resultId
-PUT    /api/v1/jobs/:id/dvi/results/:resultId
-DELETE /api/v1/jobs/:id/dvi/results/:resultId
+POST   /api/v1/dvi/results
+GET    /api/v1/dvi/results/:id
+PUT    /api/v1/dvi/results/:id
+DELETE /api/v1/dvi/results/:id
 ```
 
 ### Assets
@@ -652,9 +524,6 @@ GET    /api/v1/hr/payroll/periods/:id/export
 GET    /api/v1/hr/leave/requests
 POST   /api/v1/hr/leave/requests
 PUT    /api/v1/hr/leave/requests/:id
-DELETE /api/v1/hr/leave/requests/:id
-POST   /api/v1/hr/leave/requests/:id/approve
-POST   /api/v1/hr/leave/requests/:id/reject
 GET    /api/v1/hr/attendance
 POST   /api/v1/hr/attendance/clock-in
 POST   /api/v1/hr/attendance/clock-out
@@ -696,11 +565,11 @@ GET    /api/v1/settings/notification-preferences
 PUT    /api/v1/settings/notification-preferences
 ```
 
-### Customer Portal
+### Customer Portal (No auth required)
 ```
-POST   /api/v1/portal/jobs/access
-POST   /api/v1/portal/jobs/approve
-POST   /api/v1/portal/jobs/callback
+GET    /portal/jobs/:token
+POST   /portal/jobs/:token/approve
+POST   /portal/jobs/:token/callback
 ```
 
 ---
@@ -783,6 +652,7 @@ Every screen the user sees. Grouped by module.
 - Payroll period list
 - Payroll period detail + run + approve + export
 - Leave request list (manager view)
+- Leave request approval (manager approve/reject modal)
 - Leave request form (employee view)
 - Attendance view (calendar / table)
 
@@ -819,15 +689,16 @@ These skills will be built sequentially. Each skill is a reusable agent that gen
 | 1 | `schema-architect` | Generates the complete PostgreSQL schema SQL | — | ✅ Done |
 | 2 | `rust-module-builder` | Generates a complete Axum module (handler + service + repo + types) for any entity | schema-architect | P0 — Next |
 | 3 | `state-machine-builder` | Generates the job card transition validator in Rust | rust-module-builder | P0 |
-| 4 | `react-module-builder` | Generates a complete React module (hooks + types + components + routes) | rust-module-builder | P1 |
-| 5 | `rbac-enforcer` | Generates Axum RBAC middleware + frontend role/flag guards | rust-module-builder | P1 |
-| 6 | `docker-composer` | Generates docker-compose.yml, Dockerfiles, nginx.conf | — | P1 |
-| 7 | `pwa-configurator` | Vite PWA config, service worker strategy, manifest, offline handling | react-module-builder | P2 |
-| 8 | `excel-io-builder` | calamine read + rust_xlsxwriter write patterns + SheetJS frontend | rust-module-builder | P2 |
-| 9 | `search-builder` | PostgreSQL FTS tsvector patterns + Axum search endpoint | rust-module-builder | P2 |
-| 10 | `pdf-builder` | Intake report PDF + invoice PDF in Rust (printpdf) | rust-module-builder | P2 |
-| 11 | `notification-builder` | Email (lettre) + SMS (reqwest to gateway) + push notification patterns | rust-module-builder | P2 |
-| 12 | `test-writer` | Rust integration tests + React Testing Library tests | All of above | P3 |
+| 4 | `notification-builder` | Email (lettre) + SMS (reqwest to gateway) + push notification patterns | rust-module-builder | P0 |
+| 5 | `react-module-builder` | Generates a complete React module (hooks + types + components + routes) | rust-module-builder | P1 |
+| 6 | `rbac-enforcer` | Generates Axum RBAC middleware + frontend role/flag guards | rust-module-builder | P1 |
+| 7 | `portal-builder` | Generates customer portal pages (access, approve, callback) | react-module-builder | P1 |
+| 8 | `docker-composer` | Generates docker-compose.yml, Dockerfiles, nginx.conf | — | P1 |
+| 9 | `pwa-configurator` | Vite PWA config, service worker strategy, manifest, offline handling | react-module-builder | P2 |
+| 10 | `excel-io-builder` | calamine read + rust_xlsxwriter write patterns + SheetJS frontend | rust-module-builder | P2 |
+| 11 | `search-builder` | PostgreSQL FTS tsvector patterns + Axum search endpoint | rust-module-builder | P2 |
+| 12 | `pdf-builder` | Intake report PDF + invoice PDF in Rust (printpdf) | rust-module-builder | P2 |
+| 13 | `test-writer` | Rust integration tests + React Testing Library tests | All of above | P3 |
 
 ---
 
@@ -1026,9 +897,30 @@ Tenant setting: `document_retention_days` (NULL = keep forever, integer = delete
 `PUT /jobs/:id/assign-bay` uses a serializable sqlx transaction with `FOR UPDATE` on the target `service_bays` row. If bay is already `OCCUPIED` or `RESERVED`, returns `409` with current occupant job number. Frontend re-fetches bay board on 409 and shows toast: "Bay [code] just taken by [Job No] — please select another."
 
 ### D9 — Customer portal: Online estimate + change request approval
-When `module.customer_portal` is enabled, customers receive a short-lived signed approval token (32 bytes, cryptographically random, 48-hour expiry, single-use) via email or SMS. Token link opens a minimal portal page (no auth shell) showing estimate line items and total. The frontend extracts the token from the URL and passes it securely to the `POST /api/v1/portal/jobs/access` endpoint. Customer taps **Approve** or **Request Callback**. On approval, token immediately invalidated, `job_card_approvals` record created with `channel = EMAIL_LINK` or `SMS_LINK`. Same mechanism applies to mid-service change requests. New routes: `POST /api/v1/portal/jobs/access`, `POST /api/v1/portal/jobs/approve`, `POST /api/v1/portal/jobs/callback` (expecting token in JSON body). New columns on `job_card_approvals`: `portal_token TEXT UNIQUE`, `portal_token_expires_at TIMESTAMPTZ`.
+When `module.customer_portal` is enabled, customers receive a short-lived signed approval token (32 bytes, cryptographically random, 48-hour expiry, single-use) via email or SMS. Token link opens a minimal portal page (no auth shell) showing estimate line items and total. Customer taps **Approve** or **Request Callback**. On approval, token immediately invalidated, `job_card_approvals` record created with `channel = EMAIL_LINK` or `SMS_LINK`. Same mechanism applies to mid-service change requests. New routes: `GET /portal/jobs/:token`, `POST /portal/jobs/:token/approve`, `POST /portal/jobs/:token/callback`. New columns on `job_card_approvals`: `portal_token TEXT UNIQUE`, `portal_token_expires_at TIMESTAMPTZ`.
 
 ### D10 — Payroll: Configurable deduction components per tenant
 Deduction components defined in Settings → HR → Payroll Configuration. Each component: name, type (`PCT_OF_GROSS` | `FIXED_AMOUNT` | `SLAB`), value (`JSONB` — for slabs: `[{from, to, rate}]`), applies-to (employment type filter), active flag. Nepal defaults seeded on tenant creation: Income Tax (slab-based brackets), Provident Fund 10% (full-time only), SSF 1% (full-time only). Payroll run: Rust loads active configs, calculates per employee, stores breakdown in `payroll_entries.deductions JSONB`. New table: `payroll_deduction_configs`.
 
 ---
+
+## Part 15 — Schema Additions from Decisions
+
+The following schema additions are required for specific features. These tables/types are now included in Part 4's complete table list.
+
+### `job_card_approvals` additions (D9):
+```sql
+-- Add to existing job_card_approvals table:
+portal_token            TEXT UNIQUE,
+portal_token_expires_at TIMESTAMPTZ,
+portal_token_used_at    TIMESTAMPTZ
+```
+
+### `customer_signatures` additions (D6):
+```sql
+-- Add to existing customer_signatures table:
+file_deleted_at     TIMESTAMPTZ   -- set by retention cleanup task, NULL = file exists
+```
+
+### Schema Versioning
+Every tenant database has a `schema_version` in `tenant_settings` (key = `"schema_version"`, value = semantic version e.g., `"1.0.0"`). On tenant provisioning, insert: `INSERT INTO tenant_settings (key, value, is_encrypted) VALUES ('schema_version', '1.0.0', FALSE);`
