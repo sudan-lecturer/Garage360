@@ -12,7 +12,7 @@ use crate::errors::{AppError, AppResult};
 use crate::middleware::auth::AuthUser;
 use crate::AppState;
 
-pub fn routes() -> Router {
+pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/", get(list_tenants))
         .route("/", post(create_tenant))
@@ -21,7 +21,7 @@ pub fn routes() -> Router {
         .route("/:id", delete(deactivate_tenant))
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct TenantResponse {
     pub id: String,
     pub name: String,
@@ -50,7 +50,7 @@ pub async fn list_tenants(
         ORDER BY created_at DESC
         "#,
     )
-    .fetch_all(&*state.db)
+    .fetch_all(&state.db)
     .await
     .map_err(|e| AppError::Database(e))?;
 
@@ -162,7 +162,7 @@ pub async fn get_tenant(
         "#,
     )
     .bind(&id)
-    .fetch_optional(&*state.db)
+    .fetch_optional(&state.db)
     .await
     .map_err(|e| AppError::Database(e))?
     .ok_or_else(|| AppError::NotFound("Tenant not found".into()))?;
@@ -202,7 +202,7 @@ pub async fn update_tenant(
     .bind(&req.name)
     .bind(&req.is_active)
     .bind(&id)
-    .execute(&*state.db)
+    .execute(&state.db)
     .await
     .map_err(|e| AppError::Database(e))?;
 
@@ -226,14 +226,14 @@ pub async fn deactivate_tenant(
         "#,
     )
     .bind(&id)
-    .execute(&*state.db)
+    .execute(&state.db)
     .await
     .map_err(|e| AppError::Database(e))?;
 
     Ok(Json(()))
 }
 
-#[derive(Debug, Deserialize, Validate)]
+#[derive(Debug, Deserialize, Serialize, Validate)]
 pub struct CreateTenantRequest {
     #[validate(length(min = 1, message = "Name is required"))]
     pub name: String,
@@ -241,12 +241,13 @@ pub struct CreateTenantRequest {
     pub slug: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct UpdateTenantRequest {
     pub name: Option<String>,
     pub is_active: Option<bool>,
 }
 
+#[derive(sqlx::FromRow)]
 struct TenantRow {
     id: String,
     name: String,
@@ -257,4 +258,96 @@ struct TenantRow {
     is_active: bool,
     created_at: chrono::DateTime<chrono::Utc>,
     updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use validator::Validate;
+
+    #[test]
+    fn test_create_tenant_request_valid() {
+        let req = CreateTenantRequest {
+            name: "Acme Workshop".to_string(),
+            slug: "acme-workshop".to_string(),
+        };
+        assert!(req.validate().is_ok());
+    }
+
+    #[test]
+    fn test_create_tenant_request_empty_name() {
+        let req = CreateTenantRequest {
+            name: "".to_string(),
+            slug: "acme".to_string(),
+        };
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_create_tenant_request_empty_slug() {
+        let req = CreateTenantRequest {
+            name: "Acme Workshop".to_string(),
+            slug: "".to_string(),
+        };
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_create_tenant_request_both_empty() {
+        let req = CreateTenantRequest {
+            name: "".to_string(),
+            slug: "".to_string(),
+        };
+        assert!(req.validate().is_err());
+    }
+
+    #[test]
+    fn test_update_tenant_request_optional_fields() {
+        let req = UpdateTenantRequest {
+            name: Some("New Name".to_string()),
+            is_active: Some(false),
+        };
+        assert!(serde_json::to_string(&req).is_ok());
+    }
+
+    #[test]
+    fn test_update_tenant_request_all_none() {
+        let req = UpdateTenantRequest {
+            name: None,
+            is_active: None,
+        };
+        assert!(serde_json::to_string(&req).is_ok());
+        let json = serde_json::to_string(&req).unwrap();
+        assert!(!json.contains("null"));
+    }
+
+    #[test]
+    fn test_tenant_response_serialization() {
+        let resp = TenantResponse {
+            id: "tenant-123".to_string(),
+            name: "Test Workshop".to_string(),
+            slug: "test-workshop".to_string(),
+            database_host: "localhost".to_string(),
+            database_port: 5432,
+            database_name: "tenant_123".to_string(),
+            is_active: true,
+            created_at: chrono::Utc::now(),
+            settings: serde_json::json!({ "timezone": "Asia/Kathmandu" }),
+        };
+        let json = serde_json::to_string(&resp).expect("should serialize");
+        assert!(json.contains("Test Workshop"));
+        assert!(json.contains("tenant-123"));
+        assert!(json.contains("localhost"));
+    }
+
+    #[test]
+    fn test_create_tenant_request_serialization() {
+        let req = CreateTenantRequest {
+            name: "New Tenant".to_string(),
+            slug: "new-tenant".to_string(),
+        };
+        let json = serde_json::to_string(&req).expect("should serialize");
+        assert!(json.contains("New Tenant"));
+        assert!(json.contains("new-tenant"));
+    }
 }

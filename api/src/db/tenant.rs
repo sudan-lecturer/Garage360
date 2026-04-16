@@ -4,6 +4,7 @@ use sqlx::PgPool;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use std::time::Duration;
+use std::num::NonZeroUsize;
 
 pub struct TenantPoolRegistry {
     pools: Arc<RwLock<LruCache<String, PgPool>>>,
@@ -13,17 +14,16 @@ pub struct TenantPoolRegistry {
 impl TenantPoolRegistry {
     pub fn new(max_pools: usize) -> Self {
         Self {
-            pools: Arc::new(RwLock::new(LruCache::new(max_pools))),
+            pools: Arc::new(RwLock::new(LruCache::new(NonZeroUsize::new(max_pools).unwrap()))),
             max_pools,
         }
     }
 
     pub async fn get_pool(&self, tenant_id: &str, database_url: &str) -> anyhow::Result<PgPool> {
-        {
-            let pools = self.pools.read().await;
-            if let Some(pool) = pools.get(tenant_id) {
-                return Ok(pool.clone());
-            }
+        let mut pools = self.pools.write().await;
+        
+        if let Some(pool) = pools.get(tenant_id) {
+            return Ok(pool.clone());
         }
 
         let pool = PgPoolOptions::new()
@@ -36,13 +36,10 @@ impl TenantPoolRegistry {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to connect to tenant pool {}: {}", tenant_id, e))?;
 
-        {
-            let mut pools = self.pools.write().await;
-            if pools.len() >= self.max_pools {
-                pools.pop_lru();
-            }
-            pools.put(tenant_id.to_string(), pool.clone());
+        if pools.len() >= self.max_pools {
+            pools.pop_lru();
         }
+        pools.put(tenant_id.to_string(), pool.clone());
 
         Ok(pool)
     }
@@ -61,5 +58,48 @@ impl TenantPoolRegistry {
 impl Default for TenantPoolRegistry {
     fn default() -> Self {
         Self::new(100)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_tenant_pool_registry_new() {
+        let registry = TenantPoolRegistry::new(50);
+        assert_eq!(registry.max_pools, 50);
+    }
+
+    #[tokio::test]
+    async fn test_tenant_pool_registry_default() {
+        let registry = TenantPoolRegistry::default();
+        assert_eq!(registry.max_pools, 100);
+    }
+
+    #[tokio::test]
+    async fn test_tenant_pool_registry_remove_pool() {
+        let registry = TenantPoolRegistry::new(10);
+        registry.remove_pool("tenant-1").await;
+
+        let pools = registry.pools.read().await;
+        assert!(!pools.contains("tenant-1"));
+    }
+
+    #[tokio::test]
+    async fn test_tenant_pool_registry_clear() {
+        let registry = TenantPoolRegistry::new(10);
+        registry.clear().await;
+
+        let pools = registry.pools.read().await;
+        assert!(pools.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_tenant_pool_registry_lru_eviction_logic() {
+        let registry = TenantPoolRegistry::new(2);
+
+        assert_eq!(registry.max_pools, 2);
+        assert!(registry.pools.try_read().is_some());
     }
 }

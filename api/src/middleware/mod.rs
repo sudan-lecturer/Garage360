@@ -3,9 +3,8 @@ pub mod rbac;
 pub mod tenant;
 pub mod feature_flags;
 
-pub use auth::{AuthUser, Claims, JwtService};
+pub use auth::AuthUser;
 pub use tenant::TenantDbPool;
-pub use rbac::{require_auth, require_role, RequireRole};
 
 use axum::{
     body::Body,
@@ -43,7 +42,12 @@ pub async fn handle_rejection(req: Request, next: Next) -> Response {
     if response.status() == StatusCode::NOT_FOUND {
         let (parts, body) = response.into_parts();
         
-        if parts.headers.get(header::CONTENT_TYPE).map(|v| v.to_str().unwrap_or("")).contains("json") == Some(true) {
+        let is_json = parts.headers.get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .map(|v| v.contains("json"))
+            .unwrap_or(false);
+        
+        if is_json {
             return Response::from_parts(parts, body);
         }
 
@@ -55,4 +59,89 @@ pub async fn handle_rejection(req: Request, next: Next) -> Response {
     }
 
     response
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::Body,
+        http::Request,
+        routing::{get, post},
+    };
+    use tower::ServiceExt;
+    use tower_http::cors::Any;
+
+    #[tokio::test]
+    async fn test_log_request_passes_through_response() {
+        let app = axum::Router::new()
+            .route("/test", get(|| async { "OK" }));
+
+        let req = Request::builder()
+            .uri("/test")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.clone().oneshot(req).await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_handle_rejection_passes_non_404_responses() {
+        let app = axum::Router::new()
+            .route("/ok", get(|| async { "OK" }));
+
+        let req = Request::builder()
+            .uri("/ok")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(req).await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_routes_registration() {
+        let router = Router::new()
+            .route("/api/v1/auth/login", post(|| async { "login" }))
+            .route("/api/v1/auth/refresh", post(|| async { "refresh" }))
+            .route("/api/v1/auth/logout", post(|| async { "logout" }))
+            .route("/health/liveness", get(|| async { "OK" }));
+
+        let login_req = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/login")
+            .body(Body::empty())
+            .unwrap();
+        let login_resp = router.clone().oneshot(login_req).await.unwrap();
+        assert_eq!(login_resp.status(), axum::http::StatusCode::OK);
+
+        let health_req = Request::builder()
+            .uri("/health/liveness")
+            .body(Body::empty())
+            .unwrap();
+        let health_resp = router.clone().oneshot(health_req).await.unwrap();
+        assert_eq!(health_resp.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_cors_layer_configuration() {
+        let cors = CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any);
+
+        let app = Router::new()
+            .route("/test", get(|| async { "OK" }))
+            .layer(cors);
+
+        let req = Request::builder()
+            .uri("/test")
+            .header("Origin", "http://example.com")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(req).await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+    }
 }

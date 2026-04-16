@@ -2,10 +2,7 @@ use axum::{
     async_trait,
     extract::FromRequestParts,
     http::request::Parts,
-    http::StatusCode,
-    response::{IntoResponse, Response},
 };
-use std::sync::Arc;
 use sqlx::Row;
 
 use crate::errors::AppError;
@@ -19,12 +16,11 @@ pub struct TenantDbPool {
 }
 
 #[async_trait]
-impl<S: Send + Sync + 'static> FromRequestParts<S> for TenantDbPool {
+impl FromRequestParts<AppState> for TenantDbPool {
     type Rejection = AppError;
 
-    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        let app_state = state.downcast_ref::<Arc<AppState>>()
-            .ok_or_else(|| AppError::Internal("Missing app state".into()))?;
+    async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
+        let app_state = state;
 
         let auth_user = AuthUser::from_request_parts(parts, app_state).await?;
 

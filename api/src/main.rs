@@ -15,6 +15,7 @@ use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::info;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use redis::AsyncCommands;
 
 use crate::config::AppConfig;
 use crate::db::control::DbPool;
@@ -50,16 +51,9 @@ async fn liveness() -> &'static str {
 )]
 async fn readiness(state: axum::extract::State<AppState>) -> Result<&'static str, errors::AppError> {
     sqlx::query("SELECT 1")
-        .fetch_one(&*state.db)
+        .fetch_one(&state.db)
         .await
         .map_err(|_| errors::AppError::DatabaseUnavailable)?;
-
-    let _: Result<(), _> = state
-        .redis
-        .clone()
-        .ping()
-        .await
-        .map_err(|_| errors::AppError::RedisUnavailable);
 
     Ok("OK")
 }
@@ -115,4 +109,135 @@ async fn main() -> anyhow::Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::{
+        body::Body,
+        http::Request,
+        routing::get,
+        Router,
+    };
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn test_liveness_returns_ok() {
+        let app = Router::new()
+            .route("/health/liveness", get(liveness));
+
+        let req = Request::builder()
+            .uri("/health/liveness")
+            .body(Body::empty())
+            .unwrap();
+
+        let response = app.oneshot(req).await.unwrap();
+        assert_eq!(response.status(), axum::http::StatusCode::OK);
+
+        let body = axum::body::to_bytes(response.into_body(), 4096).await.unwrap();
+        assert_eq!(&body[..], b"OK");
+    }
+
+    #[tokio::test]
+    async fn test_create_app_registers_health_routes() {
+        let config = AppConfig {
+            database_url: "postgres://localhost/test".to_string(),
+            redis_url: "redis://localhost".to_string(),
+            app_port: 8080,
+            jwt_secret: "test-secret".to_string(),
+            jwt_expiry_hours: 1,
+            jwt_refresh_expiry_days: 7,
+            minio_endpoint: "localhost:9000".to_string(),
+            minio_access_key: "key".to_string(),
+            minio_secret_key: "key".to_string(),
+            cors_origins: vec![],
+            app_env: "test".to_string(),
+        };
+
+        let db = db::control::create_pool(&config.database_url).await.unwrap();
+        let redis = db::redis::create_client(&config.redis_url).await.unwrap();
+
+        let state = AppState {
+            config,
+            db,
+            redis: Arc::new(redis),
+            tenant_registry: Arc::new(TenantPoolRegistry::default()),
+        };
+
+        let app = create_app(state);
+
+        let liveness_req = Request::builder()
+            .uri("/health/liveness")
+            .body(Body::empty())
+            .unwrap();
+        let liveness_resp = app.clone().oneshot(liveness_req).await.unwrap();
+        assert_eq!(liveness_resp.status(), axum::http::StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_app_state_clone() {
+        let config = AppConfig {
+            database_url: "postgres://localhost/test".to_string(),
+            redis_url: "redis://localhost".to_string(),
+            app_port: 8080,
+            jwt_secret: "test-secret".to_string(),
+            jwt_expiry_hours: 1,
+            jwt_refresh_expiry_days: 7,
+            minio_endpoint: "localhost:9000".to_string(),
+            minio_access_key: "key".to_string(),
+            minio_secret_key: "key".to_string(),
+            cors_origins: vec![],
+            app_env: "test".to_string(),
+        };
+
+        let db = db::control::create_pool(&config.database_url).await.unwrap();
+        let redis = db::redis::create_client(&config.redis_url).await.unwrap();
+
+        let state = AppState {
+            config: config.clone(),
+            db: db.clone(),
+            redis: Arc::new(redis.clone()),
+            tenant_registry: Arc::new(TenantPoolRegistry::default()),
+        };
+
+        let _cloned = state.clone();
+    }
+
+    #[tokio::test]
+    async fn test_app_routes_include_auth_endpoints() {
+        let config = AppConfig {
+            database_url: "postgres://localhost/test".to_string(),
+            redis_url: "redis://localhost".to_string(),
+            app_port: 8080,
+            jwt_secret: "test-secret".to_string(),
+            jwt_expiry_hours: 1,
+            jwt_refresh_expiry_days: 7,
+            minio_endpoint: "localhost:9000".to_string(),
+            minio_access_key: "key".to_string(),
+            minio_secret_key: "key".to_string(),
+            cors_origins: vec![],
+            app_env: "test".to_string(),
+        };
+
+        let db = db::control::create_pool(&config.database_url).await.unwrap();
+        let redis = db::redis::create_client(&config.redis_url).await.unwrap();
+
+        let state = AppState {
+            config,
+            db,
+            redis: Arc::new(redis),
+            tenant_registry: Arc::new(TenantPoolRegistry::default()),
+        };
+
+        let app = create_app(state);
+
+        let login_req = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/login")
+            .body(Body::empty())
+            .unwrap();
+        let login_resp = app.clone().oneshot(login_req).await.unwrap();
+        assert_eq!(login_resp.status(), axum::http::StatusCode::BAD_REQUEST);
+    }
 }

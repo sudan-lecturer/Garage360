@@ -106,3 +106,79 @@ impl CachedFeatureFlags {
         cache.clear();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_feature_flags_is_enabled_returns_true_for_enabled_flag() {
+        let mut flags = HashMap::new();
+        flags.insert("module.dvi".to_string(), true);
+        flags.insert("module.hr".to_string(), false);
+
+        let feature_flags = FeatureFlags { flags };
+
+        assert!(feature_flags.is_enabled("module.dvi"));
+        assert!(!feature_flags.is_enabled("module.hr"));
+    }
+
+    #[test]
+    fn test_feature_flags_is_enabled_defaults_to_false_for_unknown() {
+        let flags = HashMap::new();
+        let feature_flags = FeatureFlags { flags };
+
+        assert!(!feature_flags.is_enabled("module.dvi"));
+        assert!(!feature_flags.is_enabled("nonexistent.flag"));
+    }
+
+    #[test]
+    fn test_feature_flags_get_all_returns_hashmap() {
+        let mut flags = HashMap::new();
+        flags.insert("jobs.intake".to_string(), true);
+        flags.insert("jobs.bay_management".to_string(), false);
+
+        let feature_flags = FeatureFlags { flags };
+        let all = feature_flags.get_all();
+
+        assert_eq!(all.len(), 2);
+        assert_eq!(all.get("jobs.intake"), Some(&true));
+        assert_eq!(all.get("jobs.bay_management"), Some(&false));
+    }
+
+    #[tokio::test]
+    async fn test_cached_feature_flags_new() {
+        let cache = CachedFeatureFlags::new(600);
+        assert_eq!(cache.ttl_secs, 600);
+    }
+
+    #[tokio::test]
+    async fn test_cached_feature_flags_default_ttl() {
+        let cache = CachedFeatureFlags::default();
+        assert_eq!(cache.ttl_secs, 300);
+    }
+
+    #[test]
+    fn test_feature_flags_multiple_flags() {
+        let mut flags = HashMap::new();
+        flags.insert("module.dvi".to_string(), true);
+        flags.insert("module.purchases".to_string(), true);
+        flags.insert("module.hr".to_string(), false);
+        flags.insert("module.assets".to_string(), false);
+        flags.insert("module.customer_portal".to_string(), false);
+        flags.insert("jobs.intake_inspection".to_string(), true);
+        flags.insert("jobs.bay_management".to_string(), true);
+        flags.insert("jobs.approval_workflow".to_string(), true);
+
+        let feature_flags = FeatureFlags { flags };
+
+        assert!(feature_flags.is_enabled("module.dvi"));
+        assert!(feature_flags.is_enabled("module.purchases"));
+        assert!(!feature_flags.is_enabled("module.hr"));
+        assert!(!feature_flags.is_enabled("module.assets"));
+        assert!(!feature_flags.is_enabled("module.customer_portal"));
+        assert!(feature_flags.is_enabled("jobs.intake_inspection"));
+        assert!(feature_flags.is_enabled("jobs.bay_management"));
+        assert!(feature_flags.is_enabled("jobs.approval_workflow"));
+    }
+}
