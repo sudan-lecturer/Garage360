@@ -1,0 +1,7 @@
+# Ignore build artifacts and unnecessary files
+target/
+.git/
+Dockerfile
+*.md
+*.toml
+*.lock
