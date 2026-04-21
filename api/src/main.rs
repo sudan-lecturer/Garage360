@@ -67,7 +67,6 @@ fn create_app(state: AppState) -> Router {
     Router::new()
         .route("/health/liveness", get(liveness))
         .route("/health/readiness", get(readiness))
-        .nest("/api/v1/auth", modules::auth::routes())
         .nest("/control/v1", modules::control::routes())
         .layer(axum_middleware::from_fn(log_request))
         .layer(axum_middleware::from_fn_with_state(state.clone(), handle_rejection))

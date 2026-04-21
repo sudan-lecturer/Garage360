@@ -13,18 +13,59 @@ Multi-tenant workshop management SaaS built with Rust (Axum) and React.
 ### Prerequisites
 
 - Docker & Docker Compose
-- Rust 1.75+
-- Node.js 20+
 
 ### Development
 
 ```bash
-# Start infrastructure and development servers
-docker-compose -f docker-compose.dev.yml up -d
+make up
+```
 
-# Or run locally
-cd api && cargo run &
-cd web && npm run dev
+Garage360 is Docker-first for local development. Build, test, lint, and typecheck should run through the Docker development stack instead of mixing host-local Rust and Node workflows.
+
+### Common Local Commands
+
+```bash
+make help
+make up
+make build
+make test
+make test-api
+make test-web
+make lint
+make typecheck
+make logs-api
+make logs-web
+make down
+```
+
+### Git Workflow
+
+Use short-lived branches and Conventional Commits.
+
+Branch naming:
+- `feat/<scope>-<short-purpose>`
+- `fix/<scope>-<short-purpose>`
+- `chore/<scope>-<short-purpose>`
+- `docs/<scope>-<short-purpose>`
+- `codex-<short-purpose>` for local Codex-driven task branches when slash-prefixed refs are inconvenient in the local environment
+
+Commit format:
+```text
+type(scope): short summary
+```
+
+Examples:
+```text
+feat(api): add tenant readiness check
+fix(web): handle expired access token
+docs(repo): document docker workflow
+build(devops): standardize local compose commands
+```
+
+Install the local commit-message hook once per clone:
+
+```bash
+make hooks-install
 ```
 
 ### Production
@@ -61,6 +102,8 @@ garage360/
 ## Documentation
 
 - [Master Plan](./docs/MASTER-PLAN.md)
+- [Backend Constitution](./api/BACKEND-CONSTITUTION.md)
+- [Frontend Constitution](./web/FRONTEND-CONSTITUTION.md)
 - [SRS](./SRS-Garage360-v4.md)
 
 ## License

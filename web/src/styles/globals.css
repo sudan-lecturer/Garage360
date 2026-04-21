@@ -1,62 +1,171 @@
 @import "tailwindcss";
 
+/* ============================================
+   GARAGE360 DESIGN SYSTEM v2.0
+   Built with Tailwind CSS v4
+   ============================================ */
+
 @theme {
-  --color-background: #121416;
-  --color-foreground: #F0F0F0;
-  --color-card: #1E2022;
-  --color-card-foreground: #F0F0F0;
-  --color-popover: #1E2022;
-  --color-popover-foreground: #F0F0F0;
-  --color-primary: #FFD100;
-  --color-primary-foreground: #121416;
-  --color-secondary: #FF5800;
-  --color-secondary-foreground: #F0F0F0;
-  --color-muted: #252829;
-  --color-muted-foreground: #9CA3AF;
-  --color-accent: #FFD100;
-  --color-accent-foreground: #121416;
-  --color-destructive: #EF4444;
-  --color-destructive-foreground: #F0F0F0;
+  /* ----------------------------------------
+     SEMANTIC COLOR PALETTE
+     No hard blacks - deep grays & tinted slates
+     ---------------------------------------- */
+  --color-background: #0C0D0E;
+  --color-surface: #141618;
+  --color-surface-raised: #1C1E21;
+  --color-foreground: #E8E9EA;
+  --color-foreground-muted: #8B9095;
+  --color-foreground-subtle: #5C6370;
+
+  /* Primary - Industrial Amber */
+  --color-primary: #F59E0B;
+  --color-primary-hover: #D97706;
+  --color-primary-foreground: #0C0D0E;
+
+  /* Secondary - Slate */
+  --color-secondary: #2D3139;
+  --color-secondary-hover: #3B4149;
+  --color-secondary-foreground: #E8E9EA;
+
+  /* Accent */
+  --color-accent: #F59E0B;
+  --color-accent-muted: rgba(245, 158, 11, 0.15);
+
+  /* Status - with muted variants */
   --color-success: #22C55E;
-  --color-success-foreground: #F0F0F0;
-  --color-warning: #F59E0B;
-  --color-warning-foreground: #121416;
+  --color-success-foreground: #0C0D0E;
+  --color-success-muted: rgba(34, 197, 94, 0.15);
+  --color-warning: #EAB308;
+  --color-warning-foreground: #0C0D0E;
+  --color-warning-muted: rgba(234, 179, 8, 0.15);
+  --color-destructive: #EF4444;
+  --color-destructive-foreground: #E8E9EA;
+  --color-destructive-muted: rgba(239, 68, 68, 0.15);
   --color-info: #3B82F6;
-  --color-info-foreground: #F0F0F0;
-  --color-border: #2E3235;
-  --color-input: #2E3235;
-  --color-ring: #FFD100;
+  --color-info-foreground: #E8E9EA;
+  --color-info-muted: rgba(59, 130, 246, 0.15);
 
+  /* Borders - Subtle, not harsh */
+  --color-border: #2A2E35;
+  --color-border-hover: #3D434B;
+  --color-input: #2A2E35;
+  --color-ring: #F59E0B;
+
+  /* ----------------------------------------
+     TYPOGRAPHY
+     ---------------------------------------- */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-heading: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Fluid type scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+
+  /* ----------------------------------------
+     SPACING (4px Rule)
+     All multiples of 4px
+     ---------------------------------------- */
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-5: 1.25rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+
+  /* ----------------------------------------
+     BORDERS & RADIUS
+     ---------------------------------------- */
+  --radius-none: 0;
   --radius-sm: 2px;
-  --radius-md: 2px;
-  --radius-lg: 4px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 
-  --font-sans: "Work Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* ----------------------------------------
+     SHADOWS
+     Subtle, not heavy
+     ---------------------------------------- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(245, 158, 11, 0.3);
+
+  /* ----------------------------------------
+     TRANSITIONS
+     ---------------------------------------- */
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ----------------------------------------
+   BASE STYLES
+   ---------------------------------------- */
 @layer base {
-  * {
+  *,
+  *::before,
+  *::after {
     border-color: var(--color-border);
   }
 
-  body {
-    @apply bg-background text-foreground;
-    font-family: var(--font-sans);
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    line-height: 1.6;
+    letter-spacing: -0.01em;
+  }
+
+  /* Headings - tight letter-spacing */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
-    font-weight: 700;
-    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
   }
 
-  code, pre, .mono {
-    font-family: var(--font-mono);
+  /* Links */
+  a {
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+  }
+  a:hover {
+    color: var(--color-primary-hover);
+  }
+
+  /* Focus states - accessibility */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+  }
+
+  /* Selection */
+  ::selection {
+    background-color: var(--color-accent-muted);
+    color: var(--color-foreground);
   }
 }
 
+/* ----------------------------------------
+   UTILITIES
+   ---------------------------------------- */
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;
@@ -64,5 +173,20 @@
   }
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Glass effect */
+  .glass {
+    background: rgba(20, 22, 24, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }

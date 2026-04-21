@@ -1,5 +1,6 @@
 # Build outputs
 /target/
+/api/target/
 Cargo.lock
 
 # IDE
@@ -23,6 +24,7 @@ npm-debug.log*
 
 # Dependencies
 node_modules/
+/web/node_modules/
 .web-server/
 
 # Build

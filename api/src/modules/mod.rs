@@ -1,4 +1,6 @@
 pub mod auth;
+pub mod customers;
+pub mod vehicles;
 pub mod control;
 pub mod tenant;
 
