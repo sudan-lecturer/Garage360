@@ -1,4 +1,4 @@
-# Garage360
+# Garage360 — Agent Guidance
 
 ## Workflow
 
