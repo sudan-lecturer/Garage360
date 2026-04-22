@@ -25,7 +25,7 @@ impl FromRequestParts<AppState> for TenantDbPool {
         let auth_user = AuthUser::from_request_parts(parts, app_state).await?;
 
         let tenant_db_url = get_tenant_database_url(
-            &app_state.db,
+            &app_state.control_db,
             &auth_user.tenant_id,
         )
         .await

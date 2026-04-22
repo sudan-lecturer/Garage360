@@ -100,6 +100,6 @@ mod tests {
         let registry = TenantPoolRegistry::new(2);
 
         assert_eq!(registry.max_pools, 2);
-        assert!(registry.pools.try_read().is_some());
+        assert!(registry.pools.try_read().is_ok());
     }
 }

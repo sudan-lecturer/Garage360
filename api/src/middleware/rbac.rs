@@ -34,8 +34,6 @@ pub async fn require_role(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_role_list_contains_admin() {
         let roles = vec![

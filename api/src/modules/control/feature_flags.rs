@@ -1,5 +1,5 @@
 use axum::{
-    extract::{State, Extension},
+    extract::{Path, State},
     routing::{get, put},
     Json, Router,
 };
@@ -35,7 +35,7 @@ pub struct TenantOverrideResponse {
 
 pub async fn list_feature_flags(
     State(state): State<AppState>,
-    Extension(user): Extension<AuthUser>,
+    user: AuthUser,
 ) -> AppResult<Json<Vec<FeatureFlagResponse>>> {
     if user.role != "SUPER_ADMIN" {
         return Err(AppError::Forbidden("Super admin access required".into()));
@@ -48,7 +48,7 @@ pub async fn list_feature_flags(
         ORDER BY key
         "#,
     )
-    .fetch_all(&state.db)
+    .fetch_all(&state.control_db)
     .await
     .map_err(|e| AppError::Database(e))?;
 
@@ -68,8 +68,8 @@ pub async fn list_feature_flags(
 
 pub async fn set_feature_flag(
     State(state): State<AppState>,
-    Extension(user): Extension<AuthUser>,
-    axum::extract::Path(key): axum::extract::Path<String>,
+    user: AuthUser,
+    Path(key): Path<String>,
     Json(req): Json<SetFeatureFlagRequest>,
 ) -> AppResult<Json<FeatureFlagResponse>> {
     if user.role != "SUPER_ADMIN" {
@@ -88,7 +88,7 @@ pub async fn set_feature_flag(
     .bind(&key)
     .bind(&req.description)
     .bind(&req.default_enabled)
-    .fetch_one(&state.db)
+    .fetch_one(&state.control_db)
     .await
     .map_err(|e| AppError::Database(e))?;
 

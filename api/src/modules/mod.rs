@@ -1,10 +1,10 @@
 pub mod auth;
-pub mod customers;
-pub mod vehicles;
+pub mod bays;
+pub mod billing;
 pub mod control;
+pub mod customers;
+pub mod inventory;
+pub mod jobs;
+pub mod purchases;
 pub mod tenant;
-
-pub mod routes {
-    pub use crate::modules::control::routes as control;
-    pub use crate::modules::tenant::routes as tenant;
-}
+pub mod vehicles;

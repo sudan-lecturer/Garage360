@@ -5,7 +5,6 @@ use axum::{
 };
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 use crate::errors::AppError;
 use crate::AppState;
@@ -145,8 +144,11 @@ mod tests {
     #[test]
     fn test_jwt_service_new_creates_keys_from_secret() {
         let service = JwtService::new("my-secret-key");
-        assert!(!format!("{:?}", service.encoding_key).is_empty());
-        assert!(!format!("{:?}", service.decoding_key).is_empty());
+        let token = service
+            .create_access_token("user-123", "tenant-456", "ADMIN", 1)
+            .expect("should create token");
+        let claims = service.decode(&token).expect("should decode");
+        assert_eq!(claims.sub, "user-123");
     }
 
     #[test]

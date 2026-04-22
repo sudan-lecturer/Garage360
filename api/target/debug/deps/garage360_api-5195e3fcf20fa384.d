@@ -1,8 +1,9 @@
-/app/target/debug/deps/garage360_api-5195e3fcf20fa384.d: src/main.rs src/config.rs src/db/mod.rs src/db/control.rs src/db/redis.rs src/db/tenant.rs src/errors.rs src/middleware/mod.rs src/middleware/auth.rs src/middleware/rbac.rs src/middleware/tenant.rs src/middleware/feature_flags.rs src/modules/mod.rs src/modules/auth/mod.rs src/modules/auth/routes.rs src/modules/customers/mod.rs src/modules/customers/routes.rs src/modules/vehicles/mod.rs src/modules/vehicles/routes.rs src/modules/control/mod.rs src/modules/control/tenants.rs src/modules/control/feature_flags.rs src/modules/tenant/mod.rs src/modules/tenant/routes.rs
+/app/target/debug/deps/garage360_api-5195e3fcf20fa384.d: src/main.rs src/background/mod.rs src/config.rs src/db/mod.rs src/db/control.rs src/db/redis.rs src/db/tenant.rs src/errors.rs src/middleware/mod.rs src/middleware/auth.rs src/middleware/feature_flags.rs src/middleware/rbac.rs src/middleware/tenant.rs src/modules/mod.rs src/modules/auth/mod.rs src/modules/auth/repo.rs src/modules/auth/routes.rs src/modules/auth/service.rs src/modules/auth/types.rs src/modules/bays/mod.rs src/modules/bays/repo.rs src/modules/bays/routes.rs src/modules/bays/service.rs src/modules/bays/types.rs src/modules/billing/mod.rs src/modules/billing/repo.rs src/modules/billing/routes.rs src/modules/billing/service.rs src/modules/billing/types.rs src/modules/control/mod.rs src/modules/control/tenants.rs src/modules/control/feature_flags.rs src/modules/customers/mod.rs src/modules/customers/repo.rs src/modules/customers/routes.rs src/modules/customers/service.rs src/modules/customers/types.rs src/modules/inventory/mod.rs src/modules/inventory/repo.rs src/modules/inventory/routes.rs src/modules/inventory/service.rs src/modules/inventory/types.rs src/modules/jobs/mod.rs src/modules/jobs/repo.rs src/modules/jobs/routes.rs src/modules/jobs/service.rs src/modules/jobs/types.rs src/modules/purchases/mod.rs src/modules/purchases/repo.rs src/modules/purchases/routes.rs src/modules/purchases/service.rs src/modules/purchases/types.rs src/modules/tenant/mod.rs src/modules/tenant/routes.rs src/modules/vehicles/mod.rs src/modules/vehicles/repo.rs src/modules/vehicles/routes.rs src/modules/vehicles/service.rs src/modules/vehicles/types.rs src/notifications/mod.rs src/pdf/mod.rs src/search/mod.rs src/storage/mod.rs
 
-/app/target/debug/deps/garage360_api-5195e3fcf20fa384: src/main.rs src/config.rs src/db/mod.rs src/db/control.rs src/db/redis.rs src/db/tenant.rs src/errors.rs src/middleware/mod.rs src/middleware/auth.rs src/middleware/rbac.rs src/middleware/tenant.rs src/middleware/feature_flags.rs src/modules/mod.rs src/modules/auth/mod.rs src/modules/auth/routes.rs src/modules/customers/mod.rs src/modules/customers/routes.rs src/modules/vehicles/mod.rs src/modules/vehicles/routes.rs src/modules/control/mod.rs src/modules/control/tenants.rs src/modules/control/feature_flags.rs src/modules/tenant/mod.rs src/modules/tenant/routes.rs
+/app/target/debug/deps/garage360_api-5195e3fcf20fa384: src/main.rs src/background/mod.rs src/config.rs src/db/mod.rs src/db/control.rs src/db/redis.rs src/db/tenant.rs src/errors.rs src/middleware/mod.rs src/middleware/auth.rs src/middleware/feature_flags.rs src/middleware/rbac.rs src/middleware/tenant.rs src/modules/mod.rs src/modules/auth/mod.rs src/modules/auth/repo.rs src/modules/auth/routes.rs src/modules/auth/service.rs src/modules/auth/types.rs src/modules/bays/mod.rs src/modules/bays/repo.rs src/modules/bays/routes.rs src/modules/bays/service.rs src/modules/bays/types.rs src/modules/billing/mod.rs src/modules/billing/repo.rs src/modules/billing/routes.rs src/modules/billing/service.rs src/modules/billing/types.rs src/modules/control/mod.rs src/modules/control/tenants.rs src/modules/control/feature_flags.rs src/modules/customers/mod.rs src/modules/customers/repo.rs src/modules/customers/routes.rs src/modules/customers/service.rs src/modules/customers/types.rs src/modules/inventory/mod.rs src/modules/inventory/repo.rs src/modules/inventory/routes.rs src/modules/inventory/service.rs src/modules/inventory/types.rs src/modules/jobs/mod.rs src/modules/jobs/repo.rs src/modules/jobs/routes.rs src/modules/jobs/service.rs src/modules/jobs/types.rs src/modules/purchases/mod.rs src/modules/purchases/repo.rs src/modules/purchases/routes.rs src/modules/purchases/service.rs src/modules/purchases/types.rs src/modules/tenant/mod.rs src/modules/tenant/routes.rs src/modules/vehicles/mod.rs src/modules/vehicles/repo.rs src/modules/vehicles/routes.rs src/modules/vehicles/service.rs src/modules/vehicles/types.rs src/notifications/mod.rs src/pdf/mod.rs src/search/mod.rs src/storage/mod.rs
 
 src/main.rs:
+src/background/mod.rs:
 src/config.rs:
 src/db/mod.rs:
 src/db/control.rs:
@@ -11,18 +12,56 @@ src/db/tenant.rs:
 src/errors.rs:
 src/middleware/mod.rs:
 src/middleware/auth.rs:
+src/middleware/feature_flags.rs:
 src/middleware/rbac.rs:
 src/middleware/tenant.rs:
-src/middleware/feature_flags.rs:
 src/modules/mod.rs:
 src/modules/auth/mod.rs:
+src/modules/auth/repo.rs:
 src/modules/auth/routes.rs:
-src/modules/customers/mod.rs:
-src/modules/customers/routes.rs:
-src/modules/vehicles/mod.rs:
-src/modules/vehicles/routes.rs:
+src/modules/auth/service.rs:
+src/modules/auth/types.rs:
+src/modules/bays/mod.rs:
+src/modules/bays/repo.rs:
+src/modules/bays/routes.rs:
+src/modules/bays/service.rs:
+src/modules/bays/types.rs:
+src/modules/billing/mod.rs:
+src/modules/billing/repo.rs:
+src/modules/billing/routes.rs:
+src/modules/billing/service.rs:
+src/modules/billing/types.rs:
 src/modules/control/mod.rs:
 src/modules/control/tenants.rs:
 src/modules/control/feature_flags.rs:
+src/modules/customers/mod.rs:
+src/modules/customers/repo.rs:
+src/modules/customers/routes.rs:
+src/modules/customers/service.rs:
+src/modules/customers/types.rs:
+src/modules/inventory/mod.rs:
+src/modules/inventory/repo.rs:
+src/modules/inventory/routes.rs:
+src/modules/inventory/service.rs:
+src/modules/inventory/types.rs:
+src/modules/jobs/mod.rs:
+src/modules/jobs/repo.rs:
+src/modules/jobs/routes.rs:
+src/modules/jobs/service.rs:
+src/modules/jobs/types.rs:
+src/modules/purchases/mod.rs:
+src/modules/purchases/repo.rs:
+src/modules/purchases/routes.rs:
+src/modules/purchases/service.rs:
+src/modules/purchases/types.rs:
 src/modules/tenant/mod.rs:
 src/modules/tenant/routes.rs:
+src/modules/vehicles/mod.rs:
+src/modules/vehicles/repo.rs:
+src/modules/vehicles/routes.rs:
+src/modules/vehicles/service.rs:
+src/modules/vehicles/types.rs:
+src/notifications/mod.rs:
+src/pdf/mod.rs:
+src/search/mod.rs:
+src/storage/mod.rs:

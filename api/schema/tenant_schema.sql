@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS customers (
 
 CREATE INDEX idx_customers_phone ON customers(phone);
 CREATE INDEX idx_customers_email ON customers(email);
-CREATE INDEX idx_customers_name ON customers(LOWER(first_name), LOWER(last_name);
+CREATE INDEX idx_customers_name ON customers(LOWER(first_name), LOWER(last_name));
 CREATE INDEX idx_customers_company ON customers(LOWER(company_name));
 CREATE INDEX idx_customers_active ON customers(is_active);
 

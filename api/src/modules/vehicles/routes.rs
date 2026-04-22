@@ -1,85 +1,89 @@
 use axum::{
-    extract::{Query, State, Path, Extension},
-    routing::get,
+    extract::{Path, Query},
+    routing::{delete, get, post, put},
     Json, Router,
 };
-use serde::Deserialize;
+use validator::Validate;
 
-use crate::errors::AppResult;
-use crate::middleware::auth::AuthUser;
+use crate::errors::{AppError, AppResult};
+use crate::middleware::{auth::AuthUser, tenant::TenantDbPool};
 use crate::AppState;
+
+use super::{
+    service,
+    types::{ListQuery, VehicleRequest, VehicleResponse},
+};
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/vehicles", get(list))
+        .route("/vehicles", post(create))
         .route("/vehicles/search", get(search))
-}
-
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct VehicleResponse {
-    pub id: String,
-    pub customer_id: String,
-    pub registration_no: String,
-    pub make: String,
-    pub model: String,
-    pub year: Option<i32>,
+        .route("/vehicles/:id", get(show))
+        .route("/vehicles/:id", put(update))
+        .route("/vehicles/:id", delete(remove))
 }
 
 async fn list(
+    tenant_db: TenantDbPool,
+    _auth: AuthUser,
     Query(query): Query<ListQuery>,
-    State(state): State<AppState>,
-    Extension(_auth): Extension<AuthUser>,
 ) -> AppResult<Json<serde_json::Value>> {
+    let page = query.page.max(1);
+    let limit = query.limit.clamp(1, 100);
     let search = query.search.unwrap_or_default();
-    let offset = (query.page - 1) * query.limit;
-    
-    let vehicles = sqlx::query_as::<_, (String, String, String, String, String, Option<i32>)>(
-        "SELECT id, customer_id, registration_no, make, model, year FROM vehicles 
-         WHERE is_active = true AND (registration_no LIKE $1 OR make ILIKE $1 OR model ILIKE $1)
-         ORDER BY registration_no LIMIT $2 OFFSET $3"
-    )
-    .bind(format!("%{}%", search))
-    .bind(query.limit)
-    .bind(offset)
-    .fetch_all(&state.db)
-    .await
-    .map_err(crate::errors::AppError::Database)?;
 
-    let data: Vec<VehicleResponse> = vehicles.into_iter().map(|v| VehicleResponse {
-        id: v.0, customer_id: v.1, registration_no: v.2, make: v.3, model: v.4, year: v.5,
-    }).collect();
-
-    Ok(Json(serde_json::json!({ "data": data, "meta": { "page": query.page, "limit": query.limit } })))
+    Ok(Json(
+        service::list_vehicles(&tenant_db.pool, page, limit, search).await?,
+    ))
 }
 
 async fn search(
+    tenant_db: TenantDbPool,
+    _auth: AuthUser,
     Query(query): Query<ListQuery>,
-    State(state): State<AppState>,
-    Extension(_auth): Extension<AuthUser>,
 ) -> AppResult<Json<Vec<VehicleResponse>>> {
     let search = query.search.unwrap_or_default();
-    
-    let vehicles = sqlx::query_as::<_, (String, String, String, String, String, Option<i32>)>(
-        "SELECT id, customer_id, registration_no, make, model, year FROM vehicles 
-         WHERE is_active = true AND (registration_no LIKE $1 OR vin LIKE $1)
-         ORDER BY registration_no LIMIT 20"
-    )
-    .bind(format!("%{}%", search))
-    .fetch_all(&state.db)
-    .await
-    .map_err(crate::errors::AppError::Database)?;
-
-    let data: Vec<VehicleResponse> = vehicles.into_iter().map(|v| VehicleResponse {
-        id: v.0, customer_id: v.1, registration_no: v.2, make: v.3, model: v.4, year: v.5,
-    }).collect();
-
-    Ok(Json(data))
+    Ok(Json(service::search_vehicles(&tenant_db.pool, search).await?))
 }
 
-#[derive(Default, Deserialize)]
-pub struct ListQuery {
-    pub page: i64,
-    pub limit: i64,
-    pub search: Option<String>,
+async fn show(
+    tenant_db: TenantDbPool,
+    _auth: AuthUser,
+    Path(id): Path<String>,
+) -> AppResult<Json<VehicleResponse>> {
+    Ok(Json(service::get_vehicle(&tenant_db.pool, &id).await?))
+}
+
+async fn create(
+    tenant_db: TenantDbPool,
+    auth: AuthUser,
+    Json(req): Json<VehicleRequest>,
+) -> AppResult<Json<VehicleResponse>> {
+    req.validate()
+        .map_err(|err| AppError::Validation(err.to_string()))?;
+
+    Ok(Json(
+        service::create_vehicle(&tenant_db.pool, &req, &auth.user_id).await?,
+    ))
+}
+
+async fn update(
+    tenant_db: TenantDbPool,
+    _auth: AuthUser,
+    Path(id): Path<String>,
+    Json(req): Json<VehicleRequest>,
+) -> AppResult<Json<VehicleResponse>> {
+    req.validate()
+        .map_err(|err| AppError::Validation(err.to_string()))?;
+
+    Ok(Json(service::update_vehicle(&tenant_db.pool, &id, &req).await?))
+}
+
+async fn remove(
+    tenant_db: TenantDbPool,
+    _auth: AuthUser,
+    Path(id): Path<String>,
+) -> AppResult<Json<serde_json::Value>> {
+    Ok(Json(service::delete_vehicle(&tenant_db.pool, &id).await?))
 }

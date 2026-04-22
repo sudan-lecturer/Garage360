@@ -1,7 +1,32 @@
 # Garage360 — Master Development Plan
 **Version:** 1.0.0
 **Based on:** SRS v4.0.0
-**Status:** Planning Complete — Ready for Development
+**Status:** In Progress — Backend foundation rebuilt, feature delivery active
+
+---
+
+## Current Progress Update
+
+Last updated: 2026-04-21
+
+### Backend Status
+- Backend foundation rebuilt to align more closely with the schema, backend constitution, and route map
+- Docker-based API test suite is passing after the backend refactor
+- Control-plane and tenant-plane routing are now separated in the API skeleton
+- Customers and vehicles endpoints are wired through the tenant DB extractor
+- Jobs, bays, inventory, purchases, and billing now have backend route scaffolds ready for feature implementation
+
+### Current Delivery Focus
+- Feature work is the active priority
+- Auth and RBAC are intentionally deferred for a later hardening pass
+- New backend work should focus on business modules and workflow rules first, then return to auth/RBAC once the core feature surface is in place
+
+### Recommended Next Backend Sequence
+1. Complete `customers` and `vehicles`
+2. Build `jobs` lifecycle and workflow enforcement
+3. Implement `bays` assignment and occupancy rules
+4. Implement `inventory` and stock adjustment flows
+5. Implement `billing` against job items
 
 ---
 

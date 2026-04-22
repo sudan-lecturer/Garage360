@@ -2,8 +2,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::AppState;
-
 #[derive(Debug, Clone)]
 pub struct FeatureFlags {
     flags: HashMap<String, bool>,
@@ -25,7 +23,7 @@ pub async fn load_feature_flags(
 ) -> Result<FeatureFlags, sqlx::Error> {
     let mut flags = HashMap::new();
 
-    let defaults = sqlx::query_scalar::<_, (String, bool)>(
+    let defaults = sqlx::query_as::<_, (String, bool)>(
         "SELECT key, default_enabled FROM feature_flags"
     )
     .fetch_all(db)
@@ -35,7 +33,7 @@ pub async fn load_feature_flags(
         flags.insert(key, default);
     }
 
-    let overrides = sqlx::query_scalar::<_, (String, bool)>(
+    let overrides = sqlx::query_as::<_, (String, bool)>(
         r#"
         SELECT ff.key, tfo.is_enabled
         FROM tenant_feature_flag_overrides tfo
@@ -57,7 +55,7 @@ pub async fn load_feature_flags(
 #[derive(Debug, Clone)]
 pub struct CachedFeatureFlags {
     cache: Arc<RwLock<HashMap<String, FeatureFlags>>>,
-    ttl_secs: u64,
+    _ttl_secs: u64,
 }
 
 impl Default for CachedFeatureFlags {
@@ -70,7 +68,7 @@ impl CachedFeatureFlags {
     pub fn new(ttl_secs: u64) -> Self {
         Self {
             cache: Arc::new(RwLock::new(HashMap::new())),
-            ttl_secs,
+            _ttl_secs: ttl_secs,
         }
     }
 
@@ -149,13 +147,13 @@ mod tests {
     #[tokio::test]
     async fn test_cached_feature_flags_new() {
         let cache = CachedFeatureFlags::new(600);
-        assert_eq!(cache.ttl_secs, 600);
+        assert_eq!(cache._ttl_secs, 600);
     }
 
     #[tokio::test]
     async fn test_cached_feature_flags_default_ttl() {
         let cache = CachedFeatureFlags::default();
-        assert_eq!(cache.ttl_secs, 300);
+        assert_eq!(cache._ttl_secs, 300);
     }
 
     #[test]

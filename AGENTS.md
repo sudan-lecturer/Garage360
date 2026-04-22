@@ -1,119 +1,60 @@
-# Garage360 — Agent Guidance
+# Garage360
 
-## Project Overview
+## Workflow
 
-Multi-tenant workshop management SaaS built with Rust (Axum) backend and React 19 frontend.
+- Docker-first repo. Prefer the root `Makefile` and `docker-compose.dev.yml` over host-local Rust/Node workflows.
+- Run `make up` before any command that uses `docker-compose ... exec` (`make test*`, `make lint`, `make typecheck`, `make fmt`, `make shell-*`).
+- Common root commands: `make up`, `make down`, `make restart`, `make test-api`, `make test-web`, `make lint`, `make typecheck`, `make logs-api`, `make logs-web`, `make shell-api`, `make shell-web`.
+- There is no checked-in CI workflow; treat `Makefile` + `docker-compose.dev.yml` as the executable source of truth.
+- `make build-web` is currently a no-op in dev compose (`docker-compose -f docker-compose.dev.yml build web` prints `No services to build`). Do not treat `make build` or `make build-web` as frontend build verification.
 
-## Directory Structure
+## Focused Commands
 
-```
-/Users/manees/dev/Garage360/
-├── api/                    # Rust Axum backend
-│   ├── src/
-│   │   ├── main.rs        # Entry point, app state, routes
-│   │   ├── config.rs     # Configuration loading
-│   │   ├── errors.rs    # Error types
-│   │   ├── db/          # Database modules
-│   │   ├── middleware/  # Auth, tenant, RBAC middleware
-│   │   └── modules/    # Auth, tenant, control routes
-│   └── Cargo.toml
-├── web/                   # React frontend
-│   ├── src/
-│   │   ├── api/       # API client
-│   │   ├── components/
-│   │   ├── layouts/
-│   │   ├── modules/
-│   │   ├── store/    # Zustand
-│   │   └── i18n/
-│   └── package.json
-└── docs/
-    └── MASTER-PLAN.md
-```
+- Single API test: `docker-compose -f docker-compose.dev.yml exec api cargo test <test_name>`
+- Single web test file: `docker-compose -f docker-compose.dev.yml exec web npm test -- src/.../file.test.tsx`
+- Single web test by name: `docker-compose -f docker-compose.dev.yml exec web npm test -- -t "test name"`
+- Actual frontend production build check: `docker-compose -f docker-compose.dev.yml exec web npm run build`
 
-## Tool Usage Patterns
+## Repo Shape
 
-### Searching Rust Files
-```javascript
-glob pattern="src/**/*.rs" path="/Users/manees/dev/Garage360/api"
-```
+- `api/` is the only Rust crate (`garage360-api`); there is no root Cargo workspace.
+- `web/` is a standalone npm/Vite app; there is no monorepo tool.
+- API entrypoint is `api/src/main.rs`; it mounts tenant routes at `/api/v1` and control-plane routes at `/control/v1`.
+- Web entrypoints are `web/src/main.tsx` (QueryClient, BrowserRouter, service worker registration) and `web/src/App.tsx` (route table and auth gate).
 
-### Searching React Files
-```javascript
-glob pattern="src/**/*.tsx" path="/Users/manees/dev/Garage360/web"
-```
+## Backend
 
-### Searching Tests
-```javascript
-glob pattern="**/*.test.ts" path="/Users/manees/dev/Garage360/web"
-glob pattern="**/*test*.rs" path="/Users/manees/dev/Garage360/api"
-```
+- Control DB bootstrap lives in `api/schema/control-db.sql` and is mounted into Postgres `docker-entrypoint-initdb.d`; changing that file will not update an existing `control-db-data-dev` volume automatically.
+- Tenant DBs are provisioned from the full `api/schema/tenant_schema.sql`; there is no `api/migrations/` directory and no `sqlx` migrator in the codebase.
+- API config is defined in `api/src/config.rs`: it reads `config`, then `.env`, then environment variables. Keep new env keys aligned with `AppConfig`.
+- Verified Rust gotchas already present in code:
+  - Query row structs derive `sqlx::FromRow`.
+  - Pass `&state.control_db` / `&pool` directly into `sqlx` calls.
+  - Request extractors implement `FromRequestParts<AppState>`.
+  - Tenant pool cache uses `LruCache::new(NonZeroUsize::new(...).unwrap())`.
 
-## Build Commands
+## Frontend
 
-**Always use Docker** - all building and running should use docker-compose.
+- Use the `@` alias for `web/src`.
+- Keep app API calls relative (`/api`, `/control`, `/health`); Vite proxies those paths to `localhost:8080`, and the shared axios client is `web/src/api/client.ts`.
+- Auth state lives in the persisted Zustand store in `web/src/store/auth.ts` under the `garage360-auth` key.
+- UI tokens live in `web/src/styles/globals.css`; the frontend constitution also requires screens to remain usable at `375px` width.
+- Vitest runs in `jsdom` with MSW from `web/src/test/setup.ts`; unmocked network requests fail because `onUnhandledRequest` is set to `error`.
+- The dev `web` container runs `npm install && npm run dev -- --host` on startup, so dependency changes usually need a container restart rather than a host-side install.
 
-### Using Docker Compose
+## Verification
 
-```bash
-# Start all services (development)
-cd /Users/manees/dev/Garage360
-docker-compose -f docker-compose.dev.yml up -d
+- Frontend-only changes: `make lint`, `make typecheck`, `make test-web`, and `docker-compose -f docker-compose.dev.yml exec web npm run build`.
+- Backend-only changes: `make test-api`.
+- Full-stack changes: `make test` plus the frontend checks above if `web/` changed.
 
-# View logs
-docker-compose -f docker-compose.dev.yml logs -f api
-docker-compose -f docker-compose.dev.yml logs -f web
+## Git
 
-# Stop all services
-docker-compose -f docker-compose.dev.yml down
+- Run `make hooks-install` once per clone.
+- `.githooks/commit-msg` enforces Conventional Commits: `type(scope): summary`.
 
-# Rebuild API (after code changes)
-docker-compose -f docker-compose.dev.yml build api
+## Deeper Rules
 
-# Rebuild web (after code changes)
-docker-compose -f docker-compose.dev.yml build web
-
-# Run tests inside container
-docker-compose -f docker-compose.dev.yml exec api cargo test
-docker-compose -f docker-compose.dev.yml exec web npm test
-```
-
-## Key Technologies
-
-| Component | Tech |
-|-----------|------|
-| Backend | Rust, Axum, SQLx, PostgreSQL, Redis |
-| Frontend | React 19, Vite, Tailwind CSS, Zustand |
-| Auth | JWT (HS256), Argon2 |
-| API Docs | OpenAPI (utoipa) |
-
-## Important Notes
-
-- Multi-tenant: each tenant has isolated PostgreSQL database
-- Feature flags control module visibility per tenant
-- Routes: `/api/v1/auth/*`, `/api/v1/customers`, `/api/v1/vehicles`, `/api/v1/jobs`, `/api/v1/inventory`, `/api/v1/bays`, `/api/v1/purchases`, `/api/v1/billing`, `/control/v1/*`
-- Health: `/health/liveness`, `/health/readiness`
-
-## Frontend Development
-
-See [`web/FRONTEND-CONSTITUTION.md`](./web/FRONTEND-CONSTITUTION.md) for complete guidelines.
-
-### Quick Start (Frontend)
-```bash
-cd /Users/manees/dev/Garage360/web
-docker-compose -f ../docker-compose.dev.yml up -d web
-docker-compose -f ../docker-compose.dev.yml logs -f web
-```
-
-## API Routes Summary
-
-| Route | Description |
-|-------|------------|
-| `/api/v1/auth/login` | Login, refresh, logout, me |
-| `/api/v1/customers` | CRUD + FTS search |
-| `/api/v1/vehicles` | CRUD + reg search |
-| `/api/v1/jobs` | Job cards, status machine, items |
-| `/api/v1/inventory` | Items, stock adjustment, alerts |
-| `/api/v1/bays` | Service bays CRUD |
-| `/api/v1/purchases/suppliers` | Suppliers CRUD |
-| `/api/v1/purchases/purchase-orders` | PO lifecycle, GRN, QA |
-| `/api/v1/billing/invoices` | Invoices, payments |
+- `api/BACKEND-CONSTITUTION.md` covers backend domain and tenancy constraints.
+- `web/FRONTEND-CONSTITUTION.md` covers UI, testing, and accessibility constraints.
+- `docs/MASTER-PLAN.md` is the product/route intent reference when implementation is incomplete.
