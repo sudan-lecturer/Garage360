@@ -708,10 +708,38 @@ INSERT INTO dvi_templates (name, sections) VALUES
             {"key": "brake_fluid", "label": "Brake Fluid", "type": "level"},
             {"key": "battery", "label": "Battery", "type": "condition"}
         ]},
-        {"section": "Interior", "items": [
+{"section": "Interior", "items": [
             {"key": "dashboard", "label": "Dashboard Lights", "type": "check"},
             {"key": "ac", "label": "A/C Function", "type": "check"},
             {"key": "brakes", "label": "Brakes", "type": "test"}
         ]}
-     ]')
+    ]')
 ON CONFLICT (name) DO NOTHING;
+
+-- =====================================================
+-- SEED DATA: Sample customers
+-- =====================================================
+INSERT INTO customers (customer_type, first_name, last_name, email, phone, address)
+VALUES 
+    ('INDIVIDUAL', 'Ram', 'Poudel', 'ram.poudel@email.com', '+977 9841234567', 'Teku, Kathmandu'),
+    ('INDIVIDUAL', 'Shyam', 'Khatri', 'shyam.khatri@email.com', '+977 9842345678', 'Baneshwor, Kathmandu'),
+    ('INDIVIDUAL', 'Hari', 'Sharma', 'hari.sharma@email.com', '+977 9843456789', 'Kalanki, Kathmandu'),
+    ('INDIVIDUAL', 'Geeta', 'Thapa', 'geeta.thapa@email.com', '+977 9844567890', 'Koteshwor, Kathmandu'),
+    ('INDIVIDUAL', 'Maya', 'Joshi', 'maya.joshi@email.com', '+977 9845678901', 'Satungal, Kathmandu'),
+    ('ORGANIZATION', NULL, NULL, 'info@npc.com.np', '+977 011234567', 'Tripureshwor, Kathmandu'),
+    ('ORGANIZATION', NULL, NULL, 'finance@spml.com.np', '+977 011345678', 'Pushpark, Kathmandu')
+ON CONFLICT DO NOTHING;
+
+-- =====================================================
+-- SEED DATA: Sample vehicles  
+-- =====================================================
+INSERT INTO vehicles (customer_id, registration_no, vin, make, model, year, color, fuel_type, odometer_reading)
+VALUES 
+    ((SELECT id FROM customers WHERE phone = '+977 9841234567'), 'BA 1 PA 1111', 'VIN1111111111111111', 'Toyota', 'Camry', 2023, 'White', 'PETROL', 15000),
+    ((SELECT id FROM customers WHERE phone = '+977 9842345678'), 'BA 1 PA 2222', 'VIN2222222222222222', 'Honda', 'Civic', 2022, 'Silver', 'PETROL', 25000),
+    ((SELECT id FROM customers WHERE phone = '+977 9843456789'), 'BA 1 PA 3333', 'VIN3333333333333333', 'Hyundai', 'Creta', 2023, 'Black', 'PETROL', 12000),
+    ((SELECT id FROM customers WHERE phone = '+977 9844567890'), 'BA 1 PA 4444', 'VIN4444444444444444', 'Tata', 'Nexon', 2021, 'Blue', 'DIESEL', 35000),
+    ((SELECT id FROM customers WHERE phone = '+977 9845678901'), 'BA 1 PA 5555', 'VIN5555555555555555', 'Mahindra', 'Scorpio', 2022, 'Grey', 'DIESEL', 42000),
+    ((SELECT id FROM customers WHERE phone = '+977 011234567'), 'BA 1 P 1234', 'VIN6666666666666666', 'Toyota', 'Hiace', 2022, 'White', 'DIESEL', 35000),
+    ((SELECT id FROM customers WHERE phone = '+977 011345678'), 'BA 1 P 5678', 'VIN7777777777777777', 'Toyota', 'Hiace', 2023, 'White', 'DIESEL', 15000)
+ON CONFLICT (registration_no) DO NOTHING;
