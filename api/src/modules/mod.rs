@@ -1,10 +1,15 @@
 pub mod auth;
+pub mod assets;
 pub mod bays;
 pub mod billing;
 pub mod control;
 pub mod customers;
+pub mod dvi;
+pub mod hr;
 pub mod inventory;
 pub mod jobs;
 pub mod purchases;
+pub mod reports;
+pub mod settings;
 pub mod tenant;
 pub mod vehicles;

@@ -8,6 +8,7 @@ mod notifications;
 mod pdf;
 mod search;
 mod storage;
+mod common;
 
 use axum::{
     extract::State,

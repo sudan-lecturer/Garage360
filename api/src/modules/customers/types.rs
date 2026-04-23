@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use validator::Validate;
+use crate::common::pagination::PaginationMeta;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -74,11 +75,4 @@ impl Default for ListQuery {
             search: None,
         }
     }
-}
-
-#[derive(Debug, Serialize)]
-pub struct PaginationMeta {
-    pub page: i64,
-    pub limit: i64,
-    pub total: i64,
 }

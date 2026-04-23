@@ -3,4 +3,4 @@ pub mod routes;
 pub mod service;
 pub mod types;
 
-pub use routes::routes;
+pub use routes::{feature_flags, routes};

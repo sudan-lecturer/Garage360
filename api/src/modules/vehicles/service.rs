@@ -2,10 +2,11 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use crate::errors::{AppError, AppResult};
+use crate::common::pagination::PaginationMeta;
 
 use super::{
     repo,
-    types::{PaginationMeta, VehicleRequest, VehicleResponse},
+    types::{VehicleRequest, VehicleResponse},
 };
 
 pub async fn list_vehicles(
@@ -22,7 +23,7 @@ pub async fn list_vehicles(
 
     Ok(json!({
         "data": vehicles,
-        "meta": PaginationMeta { page, limit, total }
+        "meta": crate::common::pagination::PaginationMeta { page, limit, total }
     }))
 }
 

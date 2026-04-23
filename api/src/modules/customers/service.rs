@@ -2,8 +2,9 @@ use serde_json::json;
 use sqlx::PgPool;
 
 use crate::errors::{AppError, AppResult};
+use crate::common::pagination::PaginationMeta;
 
-use super::{repo, types::{CreateCustomerRequest, CustomerResponse, PaginationMeta}};
+use super::{repo, types::{CreateCustomerRequest, CustomerResponse}};
 
 pub async fn list_customers(
     pool: &PgPool,
@@ -19,7 +20,7 @@ pub async fn list_customers(
 
     Ok(json!({
         "data": customers.into_iter().map(CustomerResponse::from).collect::<Vec<_>>(),
-        "meta": PaginationMeta { page, limit, total }
+        "meta": crate::common::pagination::PaginationMeta { page, limit, total }
     }))
 }
 
