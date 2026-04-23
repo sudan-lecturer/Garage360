@@ -7,48 +7,51 @@
 
 @theme {
   /* ----------------------------------------
-     SEMANTIC COLOR PALETTE
-     No hard blacks - deep grays & tinted slates
+     SALT & PEPPER PALETTE
+     Salt (White): #FFFFFF
+     Light Pepper (Gray): #D4D4D4
+     Medium Pepper (Dark Gray): #B3B3B3
+     Pepper (Deep Charcoal): #2B2B2B
      ---------------------------------------- */
-  --color-background: #0C0D0E;
-  --color-surface: #141618;
-  --color-surface-raised: #1C1E21;
-  --color-foreground: #E8E9EA;
-  --color-foreground-muted: #8B9095;
-  --color-foreground-subtle: #5C6370;
+  --color-background: #2B2B2B;
+  --color-surface: #2B2B2B;
+  --color-surface-raised: #B3B3B3;
+  --color-foreground: #FFFFFF;
+  --color-foreground-muted: #D4D4D4;
+  --color-foreground-subtle: #B3B3B3;
 
-  /* Primary - Industrial Amber */
+  /* Primary - Industrial Amber (kept for CTAs, links, active states) */
   --color-primary: #F59E0B;
   --color-primary-hover: #D97706;
-  --color-primary-foreground: #0C0D0E;
+  --color-primary-foreground: #2B2B2B;
 
-  /* Secondary - Slate */
-  --color-secondary: #2D3139;
-  --color-secondary-hover: #3B4149;
-  --color-secondary-foreground: #E8E9EA;
+  /* Secondary - Light Pepper */
+  --color-secondary: #D4D4D4;
+  --color-secondary-hover: #B3B3B3;
+  --color-secondary-foreground: #2B2B2B;
 
-  /* Accent */
+  /* Accent - same as primary */
   --color-accent: #F59E0B;
   --color-accent-muted: rgba(245, 158, 11, 0.15);
 
   /* Status - with muted variants */
   --color-success: #22C55E;
-  --color-success-foreground: #0C0D0E;
+  --color-success-foreground: #2B2B2B;
   --color-success-muted: rgba(34, 197, 94, 0.15);
   --color-warning: #EAB308;
-  --color-warning-foreground: #0C0D0E;
+  --color-warning-foreground: #2B2B2B;
   --color-warning-muted: rgba(234, 179, 8, 0.15);
   --color-destructive: #EF4444;
-  --color-destructive-foreground: #E8E9EA;
+  --color-destructive-foreground: #FFFFFF;
   --color-destructive-muted: rgba(239, 68, 68, 0.15);
   --color-info: #3B82F6;
-  --color-info-foreground: #E8E9EA;
+  --color-info-foreground: #FFFFFF;
   --color-info-muted: rgba(59, 130, 246, 0.15);
 
-  /* Borders - Subtle, not harsh */
-  --color-border: #2A2E35;
-  --color-border-hover: #3D434B;
-  --color-input: #2A2E35;
+  /* Borders - Light Pepper */
+  --color-border: #D4D4D4;
+  --color-border-hover: #FFFFFF;
+  --color-input: #D4D4D4;
   --color-ring: #F59E0B;
 
   /* ----------------------------------------
@@ -94,11 +97,11 @@
 
   /* ----------------------------------------
      SHADOWS
-     Subtle, not heavy
+     Adjusted for Pepper background
      ---------------------------------------- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
   --shadow-glow: 0 0 20px rgba(245, 158, 11, 0.3);
 
   /* ----------------------------------------
@@ -177,7 +180,7 @@
 
   /* Glass effect */
   .glass {
-    background: rgba(20, 22, 24, 0.8);
+    background: rgba(43, 43, 43, 0.8);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }

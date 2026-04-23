@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Button } from './button';
@@ -19,7 +19,7 @@ describe('Button', () => {
     it('should render with outline variant', () => {
       render(<Button variant="outline">Outline</Button>);
       const button = screen.getByRole('button');
-      expect(button).toHaveClass('border');
+      expect(button).toHaveClass('border-2');
     });
 
     it('should render with secondary variant', () => {
@@ -31,7 +31,7 @@ describe('Button', () => {
     it('should render with ghost variant', () => {
       render(<Button variant="ghost">Ghost</Button>);
       const button = screen.getByRole('button');
-      expect(button).toHaveClass('hover:bg-accent');
+      expect(button).toHaveClass('hover:bg-surface-raised');
     });
 
     it('should render with link variant', () => {
@@ -56,7 +56,7 @@ describe('Button', () => {
     it('should render with lg size', () => {
       render(<Button size="lg">Large</Button>);
       const button = screen.getByRole('button');
-      expect(button).toHaveClass('h-11');
+      expect(button).toHaveClass('h-12');
     });
 
     it('should render with icon size', () => {
@@ -120,7 +120,7 @@ describe('Button', () => {
   describe('Styling', () => {
     it('should have transition styling', () => {
       render(<Button>Transition</Button>);
-      expect(screen.getByRole('button')).toHaveClass('transition-colors');
+      expect(screen.getByRole('button')).toHaveClass('transition-all');
     });
 
     it('should have focus-visible ring styling', () => {

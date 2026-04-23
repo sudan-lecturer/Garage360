@@ -89,19 +89,19 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://api:8080',
         changeOrigin: true,
       },
       '/control': {
-        target: 'http://localhost:8080',
+        target: 'http://api:8080',
         changeOrigin: true,
       },
       '/portal': {
-        target: 'http://localhost:8080',
+        target: 'http://api:8080',
         changeOrigin: true,
       },
       '/health': {
-        target: 'http://localhost:8080',
+        target: 'http://api:8080',
         changeOrigin: true,
       },
     },

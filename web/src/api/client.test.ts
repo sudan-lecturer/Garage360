@@ -62,7 +62,7 @@ describe('API Client', () => {
     });
 
     it('should not refresh on other errors', () => {
-      const status = 400;
+      const status: number = 400;
       const shouldRefresh = status === 401;
       expect(shouldRefresh).toBe(false);
     });

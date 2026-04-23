@@ -78,15 +78,9 @@ pub async fn login(
     let password_hash = PasswordHash::new(&user.password_hash)
         .map_err(|_| AppError::Unauthorized("Invalid credentials".into()))?;
 
-    // DEV BYPASS - accept dev123 or password for testing
-    let valid = req.password == "dev123" || req.password == "password" 
-        || Argon2::default()
-            .verify_password(req.password.as_bytes(), &password_hash)
-            .is_ok();
-
-    if !valid {
-        return Err(AppError::Unauthorized("Invalid credentials".into()));
-    }
+    Argon2::default()
+        .verify_password(req.password.as_bytes(), &password_hash)
+        .map_err(|_| AppError::Unauthorized("Invalid credentials".into()))?;
 
     let jwt_service = JwtService::new(&state.config.jwt_secret);
     let access_token = jwt_service.create_access_token(
@@ -520,15 +514,3 @@ mod tests {
         assert!(Argon2::default()
             .verify_password(password.as_bytes(), &parsed)
             .is_ok());
-    }
-}
-
-#[cfg(test)]
-mod test_hash {
-    use super::*;
-    #[test]
-    fn print_hash() {
-        let hash = hash_password("admin123").unwrap();
-        eprintln!("THE_HASH: {}", hash);
-    }
-}

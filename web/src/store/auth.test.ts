@@ -1,11 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { useAuthStore } from './auth';
 
 vi.mock('@/store/auth', () => ({
   useAuthStore: vi.fn(),
 }));
-
-const mockedAuthStore = vi.mocked(useAuthStore);
 
 describe('Auth Store', () => {
   beforeEach(() => {

@@ -42,7 +42,7 @@ export function MainLayout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="fixed top-0 z-50 w-full bg-primary border-b border-border">
+      <nav className="fixed top-0 z-50 w-full bg-background border-b border-border">
         <div className="flex items-center justify-between px-4 h-16">
           <div className="flex items-center gap-4">
             <button
@@ -66,7 +66,7 @@ export function MainLayout() {
 
       <aside
         className={cn(
-          'fixed top-16 left-0 z-40 w-64 h-[calc(100vh-4rem)] bg-primary border-r border-border transition-transform lg:translate-x-0',
+          'fixed top-16 left-0 z-40 w-64 h-[calc(100vh-4rem)] bg-background border-r border-border transition-transform lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -80,7 +80,7 @@ export function MainLayout() {
                   'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
                   isActive
                     ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                    : 'text-muted-foreground hover:bg-surface-raised hover:text-foreground'
                 )
               }
               onClick={() => setSidebarOpen(false)}
@@ -94,7 +94,7 @@ export function MainLayout() {
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          className="fixed inset-0 z-30 bg-background/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

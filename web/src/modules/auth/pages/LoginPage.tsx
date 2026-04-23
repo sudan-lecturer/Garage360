@@ -2,6 +2,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,6 +34,7 @@ interface LoginResponse {
 }
 
 export function LoginPage() {
+  const navigate = useNavigate();
   const { login: setAuth } = useAuthStore();
   const {
     register,
@@ -60,6 +62,7 @@ export function LoginPage() {
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
       });
+      navigate('/dashboard');
     },
     onError: (error: unknown) => {
       const err = error as { response?: { data?: { error?: { message?: string } } } };

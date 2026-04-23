@@ -51,12 +51,15 @@ Motion libraries are optional. Do not make `framer-motion` a required dependency
 ## 2. Design System
 
 ### 2.1 Visual Direction
-Garage360 uses a dark industrial interface with semantic tokens, softened contrast, and amber emphasis.
+Garage360 uses a Salt & Pepper color scheme with industrial amber emphasis.
 
 Rules:
-- Prefer deep charcoals and slate surfaces over pure black
-- Use amber as the primary accent
-- Keep borders subtle, not harsh black outlines
+- Salt (White `#FFFFFF`) for foreground text and accents
+- Light Pepper (`#D4D4D4`) for muted text and borders
+- Medium Pepper (`#B3B3B3`) for raised surfaces
+- Pepper (Deep Charcoal `#2B2B2B`) for backgrounds and primary surfaces
+- Use amber `#F59E0B` as the primary accent for CTAs, links, and active states
+- Keep borders subtle using Light Pepper, not harsh black outlines
 - Favor crisp, readable density over decorative flourish
 - Use flat-to-subtle elevation, not heavy skeuomorphic shadows
 
@@ -72,16 +75,17 @@ Use the semantic token model defined in [globals.css](/Users/manees/dev/Garage36
 
 Core palette:
 ```css
---color-background: #0C0D0E;
---color-surface: #141618;
---color-surface-raised: #1C1E21;
---color-foreground: #E8E9EA;
---color-foreground-muted: #8B9095;
+--color-background: #2B2B2B;
+--color-surface: #2B2B2B;
+--color-surface-raised: #B3B3B3;
+--color-foreground: #FFFFFF;
+--color-foreground-muted: #D4D4D4;
+--color-foreground-subtle: #B3B3B3;
 --color-primary: #F59E0B;
 --color-primary-hover: #D97706;
---color-secondary: #2D3139;
---color-border: #2A2E35;
---color-border-hover: #3D434B;
+--color-secondary: #D4D4D4;
+--color-border: #D4D4D4;
+--color-border-hover: #FFFFFF;
 --color-success: #22C55E;
 --color-warning: #EAB308;
 --color-destructive: #EF4444;
