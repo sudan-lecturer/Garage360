@@ -15,6 +15,7 @@ pub struct CustomerResponse {
     pub phone: String,
     pub address: Option<String>,
     pub created_at: Option<String>,
+    pub name: String,
 }
 
 #[derive(Debug, FromRow, Serialize)]
@@ -32,6 +33,17 @@ pub struct CustomerRow {
 
 impl From<CustomerRow> for CustomerResponse {
     fn from(row: CustomerRow) -> Self {
+        let name = if row.customer_type == "ORGANIZATION" {
+            row.company_name.as_deref().unwrap_or_default().to_string()
+        } else {
+            match (&row.first_name, &row.last_name) {
+                (Some(first), Some(last)) => format!("{} {}", first, last),
+                (Some(first), None) => first.clone(),
+                (None, Some(last)) => last.clone(),
+                (None, None) => String::new(),
+            }
+        };
+
         Self {
             id: row.id,
             customer_type: row.customer_type,
@@ -42,6 +54,7 @@ impl From<CustomerRow> for CustomerResponse {
             phone: row.phone,
             address: row.address,
             created_at: row.created_at.map(|date| date.to_rfc3339()),
+            name,
         }
     }
 }

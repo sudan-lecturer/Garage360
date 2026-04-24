@@ -17,29 +17,29 @@ import { LoadingSpinner } from '@/components/shared/loading';
 import { Button } from '@/components/ui/button';
 
 interface DashboardStats {
-  open_jobs: number;
-  jobs_change: number;
-  stock_alerts: number;
-  alerts_change: number;
-  bays_occupied: number;
-  total_bays: number;
-  goods_in_transit: number;
-  transit_change: number;
+  openJobs: number;
+  jobsChange: number;
+  stockAlerts: number;
+  alertsChange: number;
+  baysOccupied: number;
+  totalBays: number;
+  goodsInTransit: number;
+  transitChange: number;
 }
 
 interface RecentActivity {
   id: string;
   action: string;
   description: string;
-  performed_by: string;
-  created_at: string;
+  performedBy: string;
+  createdAt: string;
 }
 
 interface Bay {
   id: string;
   name: string;
   status: 'FREE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE';
-  job_number: string | null;
+  jobNumber: string | null;
 }
 
 function useDashboardStats() {
@@ -57,8 +57,8 @@ function useRecentActivity() {
   return useQuery({
     queryKey: ['dashboard', 'activity'],
     queryFn: async () => {
-      const response = await api.get<{ data: RecentActivity[] }>('/v1/jobs/activities/recent');
-      return response.data.data;
+      const response = await api.get<RecentActivity[]>('/v1/dashboard/recent-activities');
+      return response.data;
     },
     staleTime: 30000,
   });
@@ -156,9 +156,9 @@ function BayWidget() {
             <span className="text-xs font-medium text-surface-foreground">
               {bay.name}
             </span>
-            {bay.job_number && (
+            {bay.jobNumber && (
               <span className="text-[10px] text-surface-foreground truncate w-full text-center">
-                {bay.job_number}
+                {bay.jobNumber}
               </span>
             )}
           </div>
@@ -202,10 +202,9 @@ function ActivityFeed() {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-foreground">{activity.description}</p>
+<p className="text-sm text-foreground">{activity.description}</p>
             <p className="text-xs text-muted-foreground mt-1">
-              {activity.performed_by} •{' '}
-              {new Date(activity.created_at).toLocaleString()}
+              {activity.performedBy} • {new Date(activity.createdAt).toLocaleString()}
             </p>
           </div>
         </div>
@@ -236,28 +235,28 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {KPICard({
           title: 'Open Jobs',
-          value: stats?.open_jobs ?? 0,
-          change: stats?.jobs_change,
+          value: stats?.openJobs ?? 0,
+          change: stats?.jobsChange,
           icon: Wrench,
           href: '/jobs',
         })}
         {KPICard({
           title: 'Stock Alerts',
-          value: stats?.stock_alerts ?? 0,
-          change: stats?.alerts_change,
+          value: stats?.stockAlerts ?? 0,
+          change: stats?.alertsChange,
           icon: AlertTriangle,
           href: '/inventory',
-          alert: (stats?.stock_alerts ?? 0) > 0,
+          alert: (stats?.stockAlerts ?? 0) > 0,
         })}
         {KPICard({
           title: 'Bays Occupied',
-          value: `${stats?.bays_occupied ?? 0}/${stats?.total_bays ?? 0}`,
+          value: `${stats?.baysOccupied ?? 0}/${stats?.totalBays ?? 0}`,
           icon: LayoutDashboard,
         })}
         {KPICard({
           title: 'Goods In Transit',
-          value: stats?.goods_in_transit ?? 0,
-          change: stats?.transit_change,
+          value: stats?.goodsInTransit ?? 0,
+          change: stats?.transitChange,
           icon: ShoppingCart,
           href: '/purchases',
         })}

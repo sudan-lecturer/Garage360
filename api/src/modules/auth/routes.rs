@@ -58,7 +58,7 @@ pub async fn login(
     req.validate()
         .map_err(|err| AppError::Validation(err.to_string()))?;
 
-    let user = sqlx::query_as::<_, SuperAdminUserRow>(
+    let super_admin = sqlx::query_as::<_, SuperAdminUserRow>(
         r#"
         SELECT id::text AS id, email, password_hash, name, is_active
         FROM super_admin_users
@@ -68,21 +68,65 @@ pub async fn login(
     .bind(&req.email)
     .fetch_optional(&state.control_db)
     .await
-    .map_err(AppError::Database)?
-    .ok_or_else(|| AppError::Unauthorized("Invalid credentials".into()))?;
+    .map_err(AppError::Database)?;
 
-    if !user.is_active {
+    if let Some(user) = super_admin {
+        if !user.is_active {
+            return Err(AppError::Unauthorized("User is inactive".into()));
+        }
+
+        let password_hash = PasswordHash::new(&user.password_hash)
+            .map_err(|_| AppError::Unauthorized("Invalid credentials".into()))?;
+
+        let valid = Argon2::default()
+            .verify_password(req.password.as_bytes(), &password_hash)
+            .is_ok();
+
+        if !valid {
+            return Err(AppError::Unauthorized("Invalid credentials".into()));
+        }
+
+        let jwt_service = JwtService::new(&state.config.jwt_secret);
+        let access_token = jwt_service.create_access_token(
+            &user.id,
+            CONTROL_TENANT_ID,
+            SUPER_ADMIN_ROLE,
+            state.config.jwt_expiry_hours,
+        )?;
+        let refresh_token = jwt_service.create_refresh_token(
+            &user.id,
+            CONTROL_TENANT_ID,
+            SUPER_ADMIN_ROLE,
+            state.config.jwt_refresh_expiry_days,
+        )?;
+
+        return Ok(Json(LoginResponse {
+            access_token,
+            refresh_token,
+            token_type: "Bearer".into(),
+            expires_in: state.config.jwt_expiry_hours * 3600,
+            user: UserResponse {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+                role: SUPER_ADMIN_ROLE.into(),
+                tenant_id: CONTROL_TENANT_ID.into(),
+            },
+        }));
+    }
+
+    let tenant_user = find_tenant_user(&state, &req.email).await?;
+
+    if !tenant_user.is_active {
         return Err(AppError::Unauthorized("User is inactive".into()));
     }
 
-    let password_hash = PasswordHash::new(&user.password_hash)
+    let password_hash = PasswordHash::new(&tenant_user.password_hash)
         .map_err(|_| AppError::Unauthorized("Invalid credentials".into()))?;
 
-    // DEV BYPASS - accept dev123 or password for testing
-    let valid = req.password == "dev123" || req.password == "password" 
-        || Argon2::default()
-            .verify_password(req.password.as_bytes(), &password_hash)
-            .is_ok();
+    let valid = Argon2::default()
+        .verify_password(req.password.as_bytes(), &password_hash)
+        .is_ok();
 
     if !valid {
         return Err(AppError::Unauthorized("Invalid credentials".into()));
@@ -90,15 +134,15 @@ pub async fn login(
 
     let jwt_service = JwtService::new(&state.config.jwt_secret);
     let access_token = jwt_service.create_access_token(
-        &user.id,
-        CONTROL_TENANT_ID,
-        SUPER_ADMIN_ROLE,
+        &tenant_user.id,
+        &tenant_user.tenant_id,
+        &tenant_user.role,
         state.config.jwt_expiry_hours,
     )?;
     let refresh_token = jwt_service.create_refresh_token(
-        &user.id,
-        CONTROL_TENANT_ID,
-        SUPER_ADMIN_ROLE,
+        &tenant_user.id,
+        &tenant_user.tenant_id,
+        &tenant_user.role,
         state.config.jwt_refresh_expiry_days,
     )?;
 
@@ -108,11 +152,11 @@ pub async fn login(
         token_type: "Bearer".into(),
         expires_in: state.config.jwt_expiry_hours * 3600,
         user: UserResponse {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: SUPER_ADMIN_ROLE.into(),
-            tenant_id: CONTROL_TENANT_ID.into(),
+            id: tenant_user.id,
+            email: tenant_user.email,
+            name: tenant_user.name,
+            role: tenant_user.role,
+            tenant_id: tenant_user.tenant_id,
         },
     }))
 }
@@ -410,6 +454,73 @@ struct TenantDatabaseRow {
     database_name: String,
     database_username: String,
     database_password: String,
+}
+
+#[derive(sqlx::FromRow)]
+struct TenantUserRow {
+    id: String,
+    email: String,
+    password_hash: String,
+    name: String,
+    role: String,
+    is_active: bool,
+    tenant_id: String,
+}
+
+async fn find_tenant_user(state: &AppState, email: &str) -> AppResult<TenantUserRow> {
+    let tenants: Vec<TenantDatabaseRow> = sqlx::query_as::<_, TenantDatabaseRow>(
+        r#"
+        SELECT database_host, database_port, database_name, database_username, database_password
+        FROM tenants
+        WHERE is_active = true
+        "#,
+    )
+    .fetch_all(&state.control_db)
+    .await
+    .map_err(AppError::Database)?;
+
+    for tenant in tenants {
+        let tenant_db_url = format!(
+            "postgres://{}:{}@{}:{}/{}",
+            tenant.database_username,
+            tenant.database_password,
+            tenant.database_host,
+            tenant.database_port,
+            tenant.database_name,
+        );
+
+        let pool = state
+            .tenant_registry
+            .get_pool(&tenant.database_name, &tenant_db_url)
+            .await
+            .map_err(|err| AppError::Internal(format!("Failed to connect to tenant database: {err}")))?;
+
+        let user = sqlx::query_as::<_, (String, String, String, String, String, bool)>(
+            r#"
+            SELECT id::text, email, password_hash, name, role, is_active
+            FROM users
+            WHERE email = $1
+            "#,
+        )
+        .bind(email)
+        .fetch_optional(&pool)
+        .await
+        .map_err(AppError::Database)?;
+
+        if let Some((id, email, password_hash, name, role, is_active)) = user {
+            return Ok(TenantUserRow {
+                id,
+                email,
+                password_hash,
+                name,
+                role,
+                is_active,
+                tenant_id: tenant.database_name.clone(),
+            });
+        }
+    }
+
+    Err(AppError::Unauthorized("Invalid credentials".into()))
 }
 
 const CONTROL_TENANT_ID: &str = "control";

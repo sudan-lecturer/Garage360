@@ -5,6 +5,7 @@ pub mod billing;
 pub mod control;
 pub mod customers;
 pub mod dvi;
+pub mod dashboard;
 pub mod hr;
 pub mod inventory;
 pub mod jobs;

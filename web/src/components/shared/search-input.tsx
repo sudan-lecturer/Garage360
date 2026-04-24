@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Search, X } from 'lucide-react';
@@ -18,37 +19,38 @@ export function SearchInput({
   debounceMs = 300,
   className,
 }: SearchInputProps) {
-  const [value, setValue] = useState(initialValue || '');
+  const [internalValue, setInternalValue] = useState(initialValue || '');
 
+  // Sync external value to internal state (required for controlled component)
   useEffect(() => {
-    if (initialValue !== undefined) {
-      setValue(initialValue);
+    if (initialValue !== undefined && initialValue !== internalValue) {
+      setInternalValue(initialValue);
     }
   }, [initialValue]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      onChange(value);
+      onChange(internalValue);
     }, debounceMs);
 
     return () => clearTimeout(timer);
-  }, [value, debounceMs, onChange]);
+  }, [internalValue, debounceMs, onChange]);
 
   return (
     <div className={cn('relative', className)}>
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
       <Input
         type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
+        value={internalValue}
+        onChange={(e) => setInternalValue(e.target.value)}
         placeholder={placeholder}
         className="pl-9 pr-8"
       />
-      {value && (
+      {internalValue && (
         <button
           type="button"
           onClick={() => {
-            setValue('');
+            setInternalValue('');
             onChange('');
           }}
           className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-surface-raised rounded"

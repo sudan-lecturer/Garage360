@@ -192,7 +192,7 @@ describe('App Routing', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /purchases/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /purchase orders/i })).toBeInTheDocument();
       });
     });
 
@@ -205,20 +205,20 @@ describe('App Routing', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /billing/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /invoices/i })).toBeInTheDocument();
       });
     });
 
     it('should render dvi when authenticated', async () => {
       render(
-        <MemoryRouter initialEntries={['/dvi']}>
+        <MemoryRouter initialEntries={['/dvi/templates']}>
           <App />
         </MemoryRouter>,
         { wrapper: createWrapper() }
       );
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dvi/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /dvi templates/i })).toBeInTheDocument();
       });
     });
 
@@ -237,14 +237,14 @@ describe('App Routing', () => {
 
     it('should render hr when authenticated', async () => {
       render(
-        <MemoryRouter initialEntries={['/hr']}>
+        <MemoryRouter initialEntries={['/hr/employees']}>
           <App />
         </MemoryRouter>,
         { wrapper: createWrapper() }
       );
 
       await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /hr/i })).toBeInTheDocument();
+        expect(screen.getByRole('heading', { name: /employees/i })).toBeInTheDocument();
       });
     });
 

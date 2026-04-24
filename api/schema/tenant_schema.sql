@@ -743,3 +743,141 @@ VALUES
     ((SELECT id FROM customers WHERE phone = '+977 011234567'), 'BA 1 P 1234', 'VIN6666666666666666', 'Toyota', 'Hiace', 2022, 'White', 'DIESEL', 35000),
     ((SELECT id FROM customers WHERE phone = '+977 011345678'), 'BA 1 P 5678', 'VIN7777777777777777', 'Toyota', 'Hiace', 2023, 'White', 'DIESEL', 15000)
 ON CONFLICT (registration_no) DO NOTHING;
+
+-- =====================================================
+-- SEED DATA: Sample users for tenant
+-- =====================================================
+INSERT INTO users (email, password_hash, name, role)
+VALUES 
+    ('mechanic@demo.com', '$argon2id$v=19$m=19456,t=2,p=1$placeholder$placeholder', 'Ram Kumar', 'MECHANIC'),
+    ('manager@demo.com', '$argon2id$v=19$m=19456,t=2,p=1$placeholder$placeholder', 'Shyam Manager', 'MANAGER'),
+    ('account@demo.com', '$argon2id$v=19$m=19456,t=2,p=1$placeholder$placeholder', 'Hari Account', 'ACCOUNT_MGR')
+ON CONFLICT (email) DO NOTHING;
+
+-- =====================================================
+-- SEED DATA: Sample customers
+-- =====================================================
+INSERT INTO customers (customer_type, first_name, last_name, email, phone, address)
+VALUES 
+    ('INDIVIDUAL', 'Ram', 'Poudel', 'ram.poudel@email.com', '+977 9841234567', 'Teku, Kathmandu'),
+    ('INDIVIDUAL', 'Shyam', 'Khatri', 'shyam.khatri@email.com', '+977 9842345678', 'Baneshwor, Kathmandu'),
+    ('INDIVIDUAL', 'Hari', 'Sharma', 'hari.sharma@email.com', '+977 9843456789', 'Kalanki, Kathmandu'),
+    ('INDIVIDUAL', 'Geeta', 'Thapa', 'geeta.thapa@email.com', '+977 9844567890', 'Koteshwor, Kathmandu'),
+    ('INDIVIDUAL', 'Maya', 'Joshi', 'maya.joshi@email.com', '+977 9845678901', 'Satungal, Kathmandu'),
+    ('ORGANIZATION', NULL, NULL, 'info@npc.com.np', '+977 011234567', 'Tripureshwor, Kathmandu'),
+    ('ORGANIZATION', NULL, NULL, 'finance@spml.com.np', '+977 011345678', 'Pushpark, Kathmandu')
+ON CONFLICT DO NOTHING;
+
+-- =====================================================
+-- SEED DATA: Sample vehicles
+-- =====================================================
+INSERT INTO vehicles (customer_id, registration_no, vin, make, model, year, color, fuel_type, odometer_reading)
+SELECT id, 'BA 1 PA 1111', 'VIN1111111111111111', 'Toyota', 'Camry', 2023, 'White', 'PETROL', 15000 FROM customers WHERE phone = '+977 9841234567'
+UNION ALL
+SELECT id, 'BA 1 PA 2222', 'VIN2222222222222222', 'Honda', 'Civic', 2022, 'Silver', 'PETROL', 25000 FROM customers WHERE phone = '+977 9842345678'
+UNION ALL
+SELECT id, 'BA 1 PA 3333', 'VIN3333333333333333', 'Hyundai', 'Creta', 2023, 'Black', 'PETROL', 12000 FROM customers WHERE phone = '+977 9843456789'
+UNION ALL
+SELECT id, 'BA 1 PA 4444', 'VIN4444444444444444', 'Tata', 'Nexon', 2021, 'Blue', 'DIESEL', 35000 FROM customers WHERE phone = '+977 9844567890'
+UNION ALL
+SELECT id, 'BA 1 PA 5555', 'VIN5555555555555555', 'Mahindra', 'Scorpio', 2022, 'Grey', 'DIESEL', 42000 FROM customers WHERE phone = '+977 9845678901'
+UNION ALL
+SELECT id, 'BA 1 P 1234', 'VIN6666666666666666', 'Toyota', 'Hiace', 2022, 'White', 'DIESEL', 35000 FROM customers WHERE phone = '+977 011234567'
+UNION ALL
+SELECT id, 'BA 1 P 5678', 'VIN7777777777777777', 'Toyota', 'Hiace', 2023, 'White', 'DIESEL', 15000 FROM customers WHERE phone = '+977 011345678'
+ON CONFLICT (registration_no) DO NOTHING;
+
+-- =====================================================
+-- SEED DATA: Sample inventory items
+-- =====================================================
+INSERT INTO inventory_items (sku, name, description, category, unit, cost_price, sell_price, min_stock_level)
+VALUES 
+    ('Oil-5W30', 'Engine Oil 5W-30', 'Synthetic engine oil 5W-30', 'Oils', 'litre', 450.00, 550.00, 20),
+    ('Oil-10W40', 'Engine Oil 10W-40', 'Mineral engine oil 10W-40', 'Oils', 'litre', 350.00, 420.00, 20),
+    ('Filter-Oil', 'Oil Filter', 'Standard oil filter', 'Filters', 'pc', 180.00, 250.00, 10),
+    ('Filter-Air', 'Air Filter', 'Standard air filter', 'Filters', 'pc', 220.00, 320.00, 10),
+    ('Filter-Cabin', 'Cabin Air Filter', 'Cabin air filter', 'Filters', 'pc', 350.00, 450.00, 5),
+    ('Brake-Pad-F', 'Brake Pads Front', 'Front brake pads', 'Brakes', 'set', 1200.00, 1800.00, 5),
+    ('Brake-Pad-R', 'Brake Pads Rear', 'Rear brake pads', 'Brakes', 'set', 900.00, 1400.00, 5),
+    ('Spark-Plug', 'Spark Plug', 'Iridium spark plug', 'Ignition', 'pc', 180.00, 280.00, 20),
+    ('Battery-12V', 'Car Battery 12V', '12V 70AH car battery', 'Electrical', 'pc', 4500.00, 5500.00, 3),
+    ('Tyre-185-65', 'Tyre 185/65 R15', 'Standard passenger tyre 185/65 R15', 'Tyres', 'pc', 4500.00, 5500.00, 8)
+ON CONFLICT (sku) DO NOTHING;
+
+-- =====================================================
+-- SEED DATA: Sample job cards (service jobs)
+-- =====================================================
+INSERT INTO job_cards (vehicle_id, customer_id, bay_id, status, complaint, odometer_in, estimated_completion)
+VALUES 
+    ((SELECT id FROM vehicles WHERE registration_no = 'BA 1 PA 1111'), 
+     (SELECT customer_id FROM vehicles WHERE registration_no = 'BA 1 PA 1111'), 
+     (SELECT id FROM service_bays WHERE code = 'BAY-1'),
+     'INTAKE', 'Oil change and general service', 15000, NOW() + INTERVAL '3 days'),
+    ((SELECT id FROM vehicles WHERE registration_no = 'BA 1 PA 2222'), 
+     (SELECT customer_id FROM vehicles WHERE registration_no = 'BA 1 PA 2222'), 
+     (SELECT id FROM service_bays WHERE code = 'BAY-2'),
+     'QUOTE', 'Brake noise while braking', 25000, NOW() + INTERVAL '2 days'),
+    ((SELECT id FROM vehicles WHERE registration_no = 'BA 1 PA 3333'), 
+     (SELECT customer_id FROM vehicles WHERE registration_no = 'BA 1 PA 3333'), 
+     (SELECT id FROM service_bays WHERE code = 'BAY-3'),
+     'IN_SERVICE', 'Engine check light on - diagnostic required', 12000, NOW() + INTERVAL '1 day'),
+    ((SELECT id FROM vehicles WHERE registration_no = 'BA 1 PA 4444'), 
+     (SELECT customer_id FROM vehicles WHERE registration_no = 'BA 1 PA 4444'), 
+     (SELECT id FROM service_bays WHERE code = 'BAY-1'),
+     'QA', 'AC not cooling properly', 35000, NOW() + INTERVAL '1 day'),
+    ((SELECT id FROM vehicles WHERE registration_no = 'BA 1 PA 5555'), 
+     (SELECT customer_id FROM vehicles WHERE registration_no = 'BA 1 PA 5555'), 
+     (SELECT id FROM service_bays WHERE code = 'BAY-2'),
+     'COMPLETED', 'Scheduled service completed', 42000, NOW() - INTERVAL '1 day')
+ON CONFLICT DO NOTHING;
+
+-- =====================================================
+-- SEED DATA: Sample job card items
+-- =====================================================
+INSERT INTO job_card_items (job_card_id, item_type, description, quantity, unit_price, discount_pct)
+SELECT 
+    jc.id, 
+    'PART', 
+    item_name, 
+    item_qty, 
+    item_price, 
+    item_discount
+FROM job_cards jc
+CROSS JOIN LATERAL (
+    VALUES 
+        (1, 'Oil-5W30', 4, 550.00, 0),
+        (2, 'Filter-Oil', 1, 250.00, 0),
+        (3, 'Filter-Air', 1, 320.00, 0)
+) AS t(ord, item_name, item_qty, item_price, item_discount)
+WHERE jc.status = 'INTAKE'
+ORDER BY jc.id, ord
+ON CONFLICT DO NOTHING;
+
+INSERT INTO job_card_items (job_card_id, item_type, description, quantity, unit_price, discount_pct)
+SELECT 
+    jc.id, 
+    'PART', 
+    item_name, 
+    item_qty, 
+    item_price, 
+    item_discount
+FROM job_cards jc
+CROSS JOIN LATERAL (
+    VALUES 
+        (1, 'Brake-Pad-F', 1, 1800.00, 10),
+        (2, 'Brake-Pad-R', 1, 1400.00, 10)
+) AS t(ord, item_name, item_qty, item_price, item_discount)
+WHERE jc.complaint LIKE '%Brake%'
+ORDER BY jc.id, ord
+ON CONFLICT DO NOTHING;
+
+-- =====================================================
+-- SEED DATA: Job card activities
+-- =====================================================
+INSERT INTO job_card_activities (job_card_id, action, description)
+SELECT id, 'CREATED', 'Job card created' FROM job_cards WHERE status IN ('INTAKE', 'QUOTE', 'IN_SERVICE')
+ON CONFLICT DO NOTHING;
+
+INSERT INTO job_card_activities (job_card_id, action, description)
+SELECT id, 'STATUS_CHANGE', 'Status changed to IN_SERVICE' FROM job_cards WHERE status = 'IN_SERVICE'
+ON CONFLICT DO NOTHING;

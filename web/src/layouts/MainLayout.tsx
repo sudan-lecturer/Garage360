@@ -29,9 +29,9 @@ const navigation = [
   { name: 'Inventory', href: '/inventory', icon: Package },
   { name: 'Purchases', href: '/purchases', icon: ShoppingCart },
   { name: 'Billing', href: '/billing', icon: Receipt },
-  { name: 'DVI', href: '/dvi', icon: ClipboardCheck },
-  { name: 'Assets', href: '/assets', icon: Box },
-  { name: 'HR', href: '/hr', icon: UsersRound },
+{ name: 'DVI', href: '/dvi/templates', icon: ClipboardCheck },
+{ name: 'Assets', href: '/assets', icon: Box },
+{ name: 'HR', href: '/hr/employees', icon: UsersRound },
   { name: 'Reports', href: '/reports', icon: BarChart3 },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];

@@ -9,6 +9,8 @@ use crate::errors::AppError;
 use crate::middleware::auth::AuthUser;
 use crate::AppState;
 
+const CONTROL_TENANT_ID: &str = "control";
+
 #[derive(Debug, Clone)]
 pub struct TenantDbPool {
     pub pool: sqlx::PgPool,
@@ -23,6 +25,14 @@ impl FromRequestParts<AppState> for TenantDbPool {
         let app_state = state;
 
         let auth_user = AuthUser::from_request_parts(parts, app_state).await?;
+
+        // Super admin uses control DB directly
+        if auth_user.tenant_id == CONTROL_TENANT_ID {
+            return Ok(TenantDbPool {
+                pool: app_state.control_db.clone(),
+                tenant_id: CONTROL_TENANT_ID.to_string(),
+            });
+        }
 
         let tenant_db_url = get_tenant_database_url(
             &app_state.control_db,

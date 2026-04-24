@@ -1,6 +1,6 @@
 use axum::{routing::get, Router};
 
-use crate::modules::{auth, assets, bays, billing, customers, dvi, hr, inventory, jobs, purchases, reports, settings, vehicles};
+use crate::modules::{auth, assets, bays, billing, customers, dvi, dashboard, hr, inventory, jobs, purchases, reports, settings, vehicles};
 use crate::AppState;
 
 pub fn routes() -> Router<AppState> {
@@ -20,6 +20,7 @@ pub fn routes() -> Router<AppState> {
         .merge(reports::routes())
         .merge(settings::routes())
         .merge(assets::routes())
+        .merge(dashboard::routes::routes())
 }
 
 async fn health() -> &'static str {
