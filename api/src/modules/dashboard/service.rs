@@ -31,17 +31,14 @@ pub async fn get_dashboard_stats(pool: &PgPool) -> AppResult<DashboardStats> {
     let stats = sqlx::query_as::<_, DashboardStats>(
         r#"
         SELECT
-            COALESCE(SUM(CASE WHEN j.status IN ('IN_SERVICE', 'QA', 'BILLING') THEN 1 ELSE 0 END), 0) as open_jobs,
-            0 as jobs_change,
-            COALESCE(SUM(CASE WHEN i.quantity <= i.min_stock_level THEN 1 ELSE 0 END), 0) as stock_alerts,
-            0 as alerts_change,
-            (SELECT COUNT(*) FROM service_bays WHERE id IN (SELECT bay_id FROM job_cards WHERE status IN ('IN_SERVICE', 'QA', 'BILLING') AND bay_id IS NOT NULL)) as bays_occupied,
-            (SELECT COUNT(*) FROM service_bays) as total_bays,
-            0 as goods_in_transit,
-            0 as transit_change
-        FROM job_cards j
-        CROSS JOIN inventory_items i
-        LIMIT 1
+            (SELECT COUNT(*)::bigint FROM job_cards WHERE status IN ('IN_SERVICE', 'QA', 'BILLING')) as open_jobs,
+            0::bigint as jobs_change,
+            (SELECT COUNT(*)::bigint FROM inventory_items WHERE is_active = true AND min_stock_level > 0) as stock_alerts,
+            0::bigint as alerts_change,
+            (SELECT COUNT(*)::bigint FROM service_bays WHERE id IN (SELECT bay_id FROM job_cards WHERE status IN ('IN_SERVICE', 'QA', 'BILLING') AND bay_id IS NOT NULL)) as bays_occupied,
+            (SELECT COUNT(*)::bigint FROM service_bays) as total_bays,
+            0::bigint as goods_in_transit,
+            0::bigint as transit_change
         "#,
     )
     .fetch_one(pool)

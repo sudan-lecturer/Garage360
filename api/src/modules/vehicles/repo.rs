@@ -13,7 +13,7 @@ pub async fn list(
 ) -> AppResult<Vec<VehicleResponse>> {
     sqlx::query_as::<_, VehicleResponse>(
         r#"
-        SELECT id, customer_id, registration_no, make, model, year
+        SELECT id::text AS id, customer_id::text AS customer_id, registration_no, make, model, year
         FROM vehicles
         WHERE is_active = true
           AND (
@@ -61,9 +61,9 @@ pub async fn count(pool: &PgPool, search: &str, like: &str) -> AppResult<i64> {
 pub async fn find_by_id(pool: &PgPool, id: &str) -> AppResult<Option<VehicleResponse>> {
     sqlx::query_as::<_, VehicleResponse>(
         r#"
-        SELECT id, customer_id, registration_no, make, model, year
+        SELECT id::text AS id, customer_id::text AS customer_id, registration_no, make, model, year
         FROM vehicles
-        WHERE id = $1 AND is_active = true
+        WHERE id = $1::uuid AND is_active = true
         "#,
     )
     .bind(id)
@@ -81,7 +81,7 @@ pub async fn create(
         r#"
         INSERT INTO vehicles (customer_id, registration_no, make, model, year, created_by)
         VALUES ($1::uuid, $2, $3, $4, $5, $6::uuid)
-        RETURNING id, customer_id, registration_no, make, model, year
+        RETURNING id::text AS id, customer_id::text AS customer_id, registration_no, make, model, year
         "#,
     )
     .bind(&req.customer_id)
@@ -109,8 +109,8 @@ pub async fn update(
             model = $5,
             year = $6,
             updated_at = NOW()
-        WHERE id = $1 AND is_active = true
-        RETURNING id, customer_id, registration_no, make, model, year
+        WHERE id = $1::uuid AND is_active = true
+        RETURNING id::text AS id, customer_id::text AS customer_id, registration_no, make, model, year
         "#,
     )
     .bind(id)
@@ -129,7 +129,7 @@ pub async fn soft_delete(pool: &PgPool, id: &str) -> AppResult<u64> {
         r#"
         UPDATE vehicles
         SET is_active = false, updated_at = NOW()
-        WHERE id = $1 AND is_active = true
+        WHERE id = $1::uuid AND is_active = true
         "#,
     )
     .bind(id)

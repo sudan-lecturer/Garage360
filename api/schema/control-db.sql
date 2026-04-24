@@ -108,7 +108,7 @@ ON CONFLICT (key) DO NOTHING;
 INSERT INTO super_admin_users (email, password_hash, name)
 VALUES (
     'admin@garage360.io',
-    '$argon2id$v=19$m=19456,t=2,p=1$QzFHN1JuV3R5ZVN0cXFMTQ$6pYmTsI4K7nLwXhR5bK0K7mQ4kJ3mN5oP6qR7sT8uV',
+    '$argon2id$v=19$m=19456,t=2,p=1$aKGSWB7Y5TYfM4ODwUyoxw$KdrDzSEUicsPhQvpP/IchopvAvTuwiOlOnZ8slRfEEw',
     'System Admin'
 )
 ON CONFLICT (email) DO NOTHING;

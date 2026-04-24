@@ -62,7 +62,7 @@ async fn get_tenant_database_url(
         r#"
         SELECT database_host, database_port, database_name, database_username, database_password
         FROM tenants
-        WHERE id = $1 AND is_active = true
+        WHERE database_name = $1 AND is_active = true
         "#,
     )
     .bind(tenant_id)

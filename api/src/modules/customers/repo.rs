@@ -13,7 +13,7 @@ pub async fn list(
 ) -> AppResult<Vec<CustomerRow>> {
     sqlx::query_as::<_, CustomerRow>(
         r#"
-        SELECT id, customer_type, first_name, last_name, company_name, email, phone, address, created_at
+        SELECT id::text AS id, customer_type, first_name, last_name, company_name, email, phone, address, created_at
         FROM customers
         WHERE is_active = true
           AND (
@@ -61,9 +61,9 @@ pub async fn count(pool: &PgPool, search: &str, like: &str) -> AppResult<i64> {
 pub async fn find_by_id(pool: &PgPool, id: &str) -> AppResult<Option<CustomerRow>> {
     sqlx::query_as::<_, CustomerRow>(
         r#"
-        SELECT id, customer_type, first_name, last_name, company_name, email, phone, address, created_at
+        SELECT id::text AS id, customer_type, first_name, last_name, company_name, email, phone, address, created_at
         FROM customers
-        WHERE id = $1 AND is_active = true
+        WHERE id = $1::uuid AND is_active = true
         "#,
     )
     .bind(id)
@@ -83,7 +83,7 @@ pub async fn create(
             customer_type, first_name, last_name, company_name, email, phone, address, created_by
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::uuid)
-        RETURNING id, customer_type, first_name, last_name, company_name, email, phone, address, created_at
+        RETURNING id::text AS id, customer_type, first_name, last_name, company_name, email, phone, address, created_at
         "#,
     )
     .bind(&req.customer_type)
@@ -114,8 +114,8 @@ pub async fn update(
             phone = $6,
             address = $7,
             updated_at = NOW()
-        WHERE id = $1 AND is_active = true
-        RETURNING id, customer_type, first_name, last_name, company_name, email, phone, address, created_at
+        WHERE id = $1::uuid AND is_active = true
+        RETURNING id::text AS id, customer_type, first_name, last_name, company_name, email, phone, address, created_at
         "#,
     )
     .bind(id)
@@ -135,7 +135,7 @@ pub async fn soft_delete(pool: &PgPool, id: &str) -> AppResult<u64> {
         r#"
         UPDATE customers
         SET is_active = false, updated_at = NOW()
-        WHERE id = $1 AND is_active = true
+        WHERE id = $1::uuid AND is_active = true
         "#,
     )
     .bind(id)

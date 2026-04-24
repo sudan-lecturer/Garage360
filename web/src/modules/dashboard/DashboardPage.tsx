@@ -39,7 +39,10 @@ interface Bay {
   id: string;
   name: string;
   status: 'FREE' | 'OCCUPIED' | 'RESERVED' | 'MAINTENANCE';
-  jobNumber: string | null;
+  jobs?: Array<{
+    jobNo: number;
+    registrationNo: string;
+  }>;
 }
 
 function useDashboardStats() {
@@ -68,8 +71,8 @@ function useBays() {
   return useQuery({
     queryKey: ['dashboard', 'bays'],
     queryFn: async () => {
-      const response = await api.get<{ data: Bay[] }>('/v1/bays/board');
-      return response.data.data;
+      const response = await api.get<Bay[]>('/v1/bays/board');
+      return response.data;
     },
     staleTime: 30000,
   });
@@ -156,9 +159,9 @@ function BayWidget() {
             <span className="text-xs font-medium text-surface-foreground">
               {bay.name}
             </span>
-            {bay.jobNumber && (
+            {bay.jobs && bay.jobs.length > 0 && (
               <span className="text-[10px] text-surface-foreground truncate w-full text-center">
-                {bay.jobNumber}
+                #{bay.jobs[0].jobNo}
               </span>
             )}
           </div>
