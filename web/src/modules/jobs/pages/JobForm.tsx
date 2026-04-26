@@ -53,7 +53,7 @@ export default function JobFormPage() {
   });
   const vehicles = vehiclesData?.data?.map((v: any) => ({
     value: v.id,
-    label: `${v.license_plate ?? '-'} - ${v.make ?? ''} ${v.model ?? ''}`,
+    label: `${v.registration_no ?? '-'} - ${v.brand ?? ''} ${v.model ?? ''}`,
   })) || [];
 
   const onSubmit = async (data: JobForm) => {

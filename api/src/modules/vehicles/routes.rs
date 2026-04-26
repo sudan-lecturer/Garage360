@@ -1,4 +1,5 @@
 use axum::{
+    extract::State,
     extract::{Path, Query},
     routing::{delete, get, post, put},
     Json, Router,
@@ -56,6 +57,7 @@ async fn show(
 }
 
 async fn create(
+    State(state): State<AppState>,
     tenant_db: TenantDbPool,
     auth: AuthUser,
     Json(req): Json<VehicleRequest>,
@@ -64,11 +66,12 @@ async fn create(
         .map_err(|err| AppError::Validation(err.to_string()))?;
 
     Ok(Json(
-        service::create_vehicle(&tenant_db.pool, &req, &auth.user_id).await?,
+        service::create_vehicle(&state.storage, &tenant_db.pool, &req, &auth.user_id).await?,
     ))
 }
 
 async fn update(
+    State(state): State<AppState>,
     tenant_db: TenantDbPool,
     _auth: AuthUser,
     Path(id): Path<String>,
@@ -77,7 +80,7 @@ async fn update(
     req.validate()
         .map_err(|err| AppError::Validation(err.to_string()))?;
 
-    Ok(Json(service::update_vehicle(&tenant_db.pool, &id, &req).await?))
+    Ok(Json(service::update_vehicle(&state.storage, &tenant_db.pool, &id, &req).await?))
 }
 
 async fn remove(

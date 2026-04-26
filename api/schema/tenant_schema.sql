@@ -107,6 +107,18 @@ CREATE INDEX idx_vehicles_vin ON vehicles(vin);
 CREATE INDEX idx_vehicles_chassis ON vehicles(chassis_no);
 CREATE INDEX idx_vehicles_active ON vehicles(is_active);
 
+CREATE TABLE IF NOT EXISTS vehicle_photos (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vehicle_id UUID NOT NULL REFERENCES vehicles(id) ON DELETE CASCADE,
+    file_path TEXT NOT NULL,
+    file_deleted_at TIMESTAMPTZ,
+    created_by UUID REFERENCES users(id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_vehicle_photos_vehicle ON vehicle_photos(vehicle_id);
+CREATE INDEX idx_vehicle_photos_active ON vehicle_photos(file_deleted_at);
+
 -- Full-text search for vehicles (registration, vin, chassis)
 CREATE INDEX idx_vehicles_fts ON vehicles USING gin(
     to_tsvector('english', 

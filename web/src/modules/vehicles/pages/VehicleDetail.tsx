@@ -35,10 +35,10 @@ export default function VehicleDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title={vehicle.license_plate}
+        title={vehicle.registration_no}
         breadcrumbs={[
           { label: 'Vehicles', href: '/vehicles' },
-          { label: vehicle.license_plate },
+          { label: vehicle.registration_no },
         ]}
         actions={
           <Button asChild>
@@ -58,17 +58,17 @@ export default function VehicleDetailPage() {
                 <Car className="h-6 w-6 text-accent" />
               </div>
               <div>
-                <h2 className="text-xl font-bold">{vehicle.license_plate}</h2>
+                <h2 className="text-xl font-bold">{vehicle.registration_no}</h2>
                 <p className="text-sm text-muted-foreground">
-                  {vehicle.make} {vehicle.model}
+                  {vehicle.brand} {vehicle.model}
                 </p>
               </div>
             </div>
 
             <div className="space-y-3 pt-4 border-t border-border">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Make</span>
-                <span className="font-medium">{vehicle.make}</span>
+                <span className="text-muted-foreground">Brand</span>
+                <span className="font-medium">{vehicle.brand}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Model</span>

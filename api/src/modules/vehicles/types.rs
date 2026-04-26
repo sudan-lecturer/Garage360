@@ -8,10 +8,13 @@ use crate::common::pagination::PaginationMeta;
 pub struct VehicleResponse {
     pub id: String,
     pub customer_id: String,
+    pub customer_name: String,
     pub registration_no: String,
     pub make: String,
     pub model: String,
     pub year: Option<i32>,
+    pub last_service_at: Option<String>,
+    pub photo_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Validate)]
@@ -25,6 +28,10 @@ pub struct VehicleRequest {
     #[validate(length(min = 1))]
     pub model: String,
     pub year: Option<i32>,
+    pub color: Option<String>,
+    pub vin: Option<String>,
+    pub photo_base64: Option<String>,
+    pub photo_mime_type: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

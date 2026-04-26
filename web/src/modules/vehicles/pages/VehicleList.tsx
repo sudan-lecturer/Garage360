@@ -19,9 +19,10 @@ export default function VehicleListPage() {
   });
 
   // Extract unique makes for filter
-  const makes = data?.data 
-    ? [...new Set(data.data.map(v => v.make).filter(Boolean))]
+  const brands = data?.data
+    ? [...new Set(data.data.map((v) => v.brand).filter(Boolean))]
     : [];
+  const displayRows = (data?.data ?? []).filter((vehicle) => !makeFilter || vehicle.brand === makeFilter);
 
   return (
     <div className="space-y-4">
@@ -43,18 +44,18 @@ export default function VehicleListPage() {
           <SearchInput
             value={search}
             onChange={setSearch}
-            placeholder="Search by license plate..."
+            placeholder="Search by license plate, customer, brand, model..."
           />
         </div>
-        {makes.length > 0 && (
+        {brands.length > 0 && (
           <select
             value={makeFilter}
             onChange={(e) => setMakeFilter(e.target.value)}
             className="h-10 rounded-md border border-input bg-background px-3 text-sm"
           >
-            <option value="">All Makes</option>
-            {makes.map((make) => (
-              <option key={make} value={make}>{make}</option>
+            <option value="">All Brands</option>
+            {brands.map((brand) => (
+              <option key={brand} value={brand}>{brand}</option>
             ))}
           </select>
         )}
@@ -101,7 +102,7 @@ export default function VehicleListPage() {
               </tr>
             </thead>
             <tbody>
-              {data.data.map((vehicle) => (
+              {displayRows.map((vehicle) => (
                 <tr
                   key={vehicle.id}
                   className="border-b border-border last:border-0 hover:bg-surface-raised"
@@ -112,19 +113,25 @@ export default function VehicleListPage() {
                       className="flex items-center gap-2 hover:text-accent"
                     >
                       <Car className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium">{vehicle.license_plate}</span>
+                      <span className="font-medium">{vehicle.registration_no}</span>
                     </Link>
                   </td>
                   <td className="p-3 text-sm">
-                    {vehicle.make} {vehicle.model}
+                    {vehicle.brand} {vehicle.model}
                   </td>
                   <td className="p-3 text-sm text-muted-foreground">{vehicle.year || '-'}</td>
                   <td className="p-3 text-sm text-muted-foreground">
-                    <Link to={`/customers/${vehicle.customer_id}`} className="hover:text-accent">
-                      {vehicle.customer_name}
-                    </Link>
+                    {vehicle.customer_id ? (
+                      <Link to={`/customers/${vehicle.customer_id}`} className="hover:text-accent">
+                        {vehicle.customer_name}
+                      </Link>
+                    ) : (
+                      <span>{vehicle.customer_name}</span>
+                    )}
                   </td>
-                  <td className="p-3 text-sm text-muted-foreground">-</td>
+                  <td className="p-3 text-sm text-muted-foreground">
+                    {vehicle.last_service_at ? new Date(vehicle.last_service_at).toLocaleDateString() : '-'}
+                  </td>
                   <td className="p-3 text-right">
                     <Link
                       to={`/vehicles/${vehicle.id}`}

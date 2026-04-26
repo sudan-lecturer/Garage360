@@ -338,6 +338,90 @@ async fn run_tenant_schema(tenant_pool: &sqlx::PgPool) -> AppResult<()> {
     .await
     .map_err(AppError::Database)?;
 
+    seed_demo_fleet_data(tenant_pool).await?;
+
+    Ok(())
+}
+
+async fn seed_demo_fleet_data(tenant_pool: &sqlx::PgPool) -> AppResult<()> {
+    sqlx::query(
+        r#"
+        INSERT INTO customers (customer_type, first_name, last_name, email, phone, address)
+        SELECT 'INDIVIDUAL', 'Sanjay', 'Shrestha', 'sanjay.shrestha@example.com', '+9779812345678', 'Lalitpur'
+        WHERE NOT EXISTS (
+            SELECT 1 FROM customers WHERE phone = '+9779812345678'
+        )
+        "#,
+    )
+    .execute(tenant_pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO customers (customer_type, company_name, email, phone, address)
+        SELECT 'ORGANIZATION', 'Apex Logistics Pvt Ltd', 'ops@apexlogistics.example.com', '+9779801112222', 'Balaju, Kathmandu'
+        WHERE NOT EXISTS (
+            SELECT 1 FROM customers WHERE company_name = 'Apex Logistics Pvt Ltd'
+        )
+        "#,
+    )
+    .execute(tenant_pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO customers (customer_type, company_name, email, phone, address)
+        SELECT 'ORGANIZATION', 'Himal Traders Corp', 'fleet@himaltraders.example.com', '+9779803334444', 'Butwal'
+        WHERE NOT EXISTS (
+            SELECT 1 FROM customers WHERE company_name = 'Himal Traders Corp'
+        )
+        "#,
+    )
+    .execute(tenant_pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO vehicles (customer_id, registration_no, make, model, year, color, vin, last_service_at)
+        SELECT c.id, 'BA-2-CH-8899', 'Toyota', 'Hilux', 2022, 'White', 'MR0HX8CDXN1234567', NOW() - INTERVAL '38 days'
+        FROM customers c
+        WHERE c.company_name = 'Apex Logistics Pvt Ltd'
+          AND NOT EXISTS (SELECT 1 FROM vehicles v WHERE v.registration_no = 'BA-2-CH-8899')
+        "#,
+    )
+    .execute(tenant_pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO vehicles (customer_id, registration_no, make, model, year, color, vin, last_service_at)
+        SELECT c.id, 'Bagmati-01-3345', 'Honda', 'City', 2020, 'Grey', 'MHRGM2680LP654321', NOW() - INTERVAL '22 days'
+        FROM customers c
+        WHERE c.phone = '+9779812345678'
+          AND NOT EXISTS (SELECT 1 FROM vehicles v WHERE v.registration_no = 'Bagmati-01-3345')
+        "#,
+    )
+    .execute(tenant_pool)
+    .await
+    .map_err(AppError::Database)?;
+
+    sqlx::query(
+        r#"
+        INSERT INTO vehicles (customer_id, registration_no, make, model, year, color, vin, last_service_at)
+        SELECT c.id, 'Ga-3-Pa-2211', 'Hyundai', 'Creta', 2021, 'Black', 'MALCU81UVMM987654', NOW() - INTERVAL '57 days'
+        FROM customers c
+        WHERE c.company_name = 'Himal Traders Corp'
+          AND NOT EXISTS (SELECT 1 FROM vehicles v WHERE v.registration_no = 'Ga-3-Pa-2211')
+        "#,
+    )
+    .execute(tenant_pool)
+    .await
+    .map_err(AppError::Database)?;
+
     Ok(())
 }
 
