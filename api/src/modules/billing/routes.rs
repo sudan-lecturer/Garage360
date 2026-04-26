@@ -20,6 +20,7 @@ pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/invoices", get(list))
         .route("/invoices", post(create))
+        .route("/invoices/export", get(export))
         .route("/invoices/:id", get(show))
         .route("/invoices/:id", put(update))
         .route("/invoices/:id/issue", post(issue))
@@ -39,6 +40,18 @@ async fn list(
 
     Ok(Json(
         service::list_invoices(&tenant_db.pool, page, limit, search, status).await?,
+    ))
+}
+
+async fn export(
+    tenant_db: TenantDbPool,
+    _auth: AuthUser,
+    Query(query): Query<ListQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let search = query.search.unwrap_or_default();
+    let status = query.status.unwrap_or_default();
+    Ok(Json(
+        service::export_invoices(&tenant_db.pool, search, status).await?,
     ))
 }
 

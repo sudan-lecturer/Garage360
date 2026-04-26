@@ -33,6 +33,45 @@ pub async fn list_inventory(
     }))
 }
 
+pub async fn export_inventory(
+    pool: &PgPool,
+    search: String,
+    category: String,
+) -> AppResult<serde_json::Value> {
+    let like = format!("%{}%", search);
+    let category_like = format!("%{}%", category);
+    let rows = repo::list(pool, &search, &like, &category, &category_like, 10_000, 0).await?;
+    let items = rows.into_iter().map(InventoryItemResponse::from).collect::<Vec<_>>();
+
+    let data = items
+        .iter()
+        .map(|item| {
+            vec![
+                json!(item.sku),
+                json!(item.name),
+                json!(item.category),
+                json!(item.unit),
+                json!(item.cost_price),
+                json!(item.sell_price),
+                json!(item.current_quantity),
+                json!(item.min_stock_level),
+                json!(if item.current_quantity.parse::<f64>().unwrap_or(0.0) <= 0.0 {
+                    "OUT"
+                } else if item.current_quantity.parse::<f64>().unwrap_or(0.0) <= item.min_stock_level as f64 {
+                    "LOW"
+                } else {
+                    "OK"
+                }),
+            ]
+        })
+        .collect::<Vec<_>>();
+
+    Ok(json!({
+        "headers": ["SKU", "Name", "Category", "Unit", "Cost Price", "Sell Price", "Current Quantity", "Min Stock Level", "Stock Status"],
+        "data": data
+    }))
+}
+
 pub async fn search_inventory(pool: &PgPool, search: String) -> AppResult<Vec<InventoryItemResponse>> {
     let like = format!("%{}%", search);
     Ok(repo::list(pool, &search, &like, "", "%%", 20, 0)
@@ -256,4 +295,38 @@ fn ensure_valid_uuid(value: &str, resource_name: &str) -> AppResult<()> {
     Uuid::parse_str(value)
         .map(|_| ())
         .map_err(|_| AppError::Validation(format!("Invalid {} identifier", resource_name)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn normalize_adjustment_type_rejects_unknown() {
+        let err = normalize_adjustment_type("shift").expect_err("invalid type should fail");
+        match err {
+            AppError::Validation(message) => assert!(message.contains("Adjustment type")),
+            other => panic!("unexpected error: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn normalize_decimal_input_enforces_scale() {
+        let err = normalize_decimal_input("1.2345", 3, true, "Quantity")
+            .expect_err("too many decimal places should fail");
+        match err {
+            AppError::Validation(message) => assert!(message.contains("decimal places")),
+            other => panic!("unexpected error: {:?}", other),
+        }
+    }
+
+    #[test]
+    fn normalize_decimal_input_rejects_zero_when_disallowed() {
+        let err = normalize_decimal_input("0", 3, false, "Quantity")
+            .expect_err("zero should fail when not allowed");
+        match err {
+            AppError::Validation(message) => assert!(message.contains("greater than zero")),
+            other => panic!("unexpected error: {:?}", other),
+        }
+    }
 }

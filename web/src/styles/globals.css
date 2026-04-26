@@ -13,26 +13,26 @@
      Medium Pepper (Dark Gray): #B3B3B3
      Pepper (Deep Charcoal): #2B2B2B
      ---------------------------------------- */
-  --color-background: #2B2B2B;
-  --color-surface: #2B2B2B;
-  --color-surface-raised: #B3B3B3;
+  --color-background: #121416;
+  --color-surface: #1E2226;
+  --color-surface-raised: #2A2F34;
   --color-foreground: #FFFFFF;
   --color-foreground-muted: #D4D4D4;
   --color-foreground-subtle: #B3B3B3;
 
   /* Primary - Industrial Amber (kept for CTAs, links, active states) */
-  --color-primary: #F59E0B;
-  --color-primary-hover: #D97706;
-  --color-primary-foreground: #2B2B2B;
+  --color-primary: #FFD100;
+  --color-primary-hover: #E6BC00;
+  --color-primary-foreground: #121416;
 
   /* Secondary - Light Pepper */
-  --color-secondary: #D4D4D4;
-  --color-secondary-hover: #B3B3B3;
-  --color-secondary-foreground: #2B2B2B;
+  --color-secondary: #2A2F34;
+  --color-secondary-hover: #343A40;
+  --color-secondary-foreground: #FFFFFF;
 
   /* Accent - same as primary */
-  --color-accent: #F59E0B;
-  --color-accent-muted: rgba(245, 158, 11, 0.15);
+  --color-accent: #FF5800;
+  --color-accent-muted: rgba(255, 88, 0, 0.18);
 
   /* Status - with muted variants */
   --color-success: #22C55E;
@@ -49,17 +49,17 @@
   --color-info-muted: rgba(59, 130, 246, 0.15);
 
   /* Borders - Light Pepper */
-  --color-border: #D4D4D4;
-  --color-border-hover: #FFFFFF;
-  --color-input: #D4D4D4;
-  --color-ring: #F59E0B;
+  --color-border: #343A40;
+  --color-border-hover: #4A525B;
+  --color-input: #343A40;
+  --color-ring: #FFD100;
 
   /* ----------------------------------------
      TYPOGRAPHY
      ---------------------------------------- */
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-heading: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Work Sans", "Inter", system-ui, -apple-system, sans-serif;
+  --font-heading: "Barlow", "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", "JetBrains Mono", ui-monospace, monospace;
 
   /* Fluid type scale */
   --text-xs: 0.75rem;
@@ -91,18 +91,18 @@
      ---------------------------------------- */
   --radius-none: 0;
   --radius-sm: 2px;
-  --radius-md: 4px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
 
   /* ----------------------------------------
      SHADOWS
      Adjusted for Pepper background
      ---------------------------------------- */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.6);
-  --shadow-glow: 0 0 20px rgba(245, 158, 11, 0.3);
+  --shadow-sm: 0 0 0 rgba(0, 0, 0, 0);
+  --shadow-md: 0 0 0 rgba(0, 0, 0, 0);
+  --shadow-lg: 0 0 0 rgba(0, 0, 0, 0);
+  --shadow-glow: 0 0 0 rgba(0, 0, 0, 0);
 
   /* ----------------------------------------
      TRANSITIONS
@@ -132,14 +132,14 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     line-height: 1.6;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.005em;
   }
 
   /* Headings - tight letter-spacing */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
-    font-weight: 600;
-    letter-spacing: -0.025em;
+    font-weight: 700;
+    letter-spacing: -0.015em;
     line-height: 1.2;
   }
 

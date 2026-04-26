@@ -58,6 +58,35 @@ pub async fn list_invoices(
     }))
 }
 
+pub async fn export_invoices(pool: &PgPool, search: String, status: String) -> AppResult<serde_json::Value> {
+    let like = format!("%{}%", search);
+    let invoices = repo::list(pool, &search, &like, &status, 10_000, 0).await?;
+    let rows = invoices
+        .into_iter()
+        .map(InvoiceSummaryResponse::from)
+        .map(|invoice| {
+            vec![
+                json!(invoice.invoice_no),
+                json!(invoice.job_no),
+                json!(invoice.customer_name),
+                json!(invoice.status),
+                json!(invoice.subtotal),
+                json!(invoice.discount_amount),
+                json!(invoice.tax_amount),
+                json!(invoice.total_amount),
+                json!(invoice.amount_paid),
+                json!(invoice.balance_due),
+                json!(invoice.created_at),
+            ]
+        })
+        .collect::<Vec<_>>();
+
+    Ok(json!({
+        "headers": ["Invoice No", "Job No", "Customer", "Status", "Subtotal", "Discount", "Tax", "Total", "Amount Paid", "Balance Due", "Created At"],
+        "data": rows
+    }))
+}
+
 pub async fn get_invoice(pool: &PgPool, id: &str) -> AppResult<InvoiceResponse> {
     ensure_uuid(id, "invoice id")?;
 
@@ -232,6 +261,8 @@ pub async fn record_payment(
         ));
     }
 
+    let payment_method = normalize_payment_method(req.payment_method.as_deref())?;
+    let payment_ref = normalize_payment_ref(req.payment_ref.as_deref());
     let paid_at = parse_optional_datetime(&req.paid_at, "paidAt")?.unwrap_or_else(Utc::now);
     let next_status = derive_invoice_status(new_amount_paid, state.total_amount);
     let next_notes = merge_action_note(state.notes.as_deref(), req.notes.as_deref(), "PAYMENT");
@@ -241,8 +272,8 @@ pub async fn record_payment(
         id,
         new_amount_paid,
         next_status,
-        req.payment_method.as_deref().or(state.payment_method.as_deref()),
-        req.payment_ref.as_deref().or(state.payment_ref.as_deref()),
+        payment_method.as_deref().or(state.payment_method.as_deref()),
+        payment_ref.as_deref().or(state.payment_ref.as_deref()),
         Some(paid_at),
         next_notes.as_deref(),
     )
@@ -483,6 +514,9 @@ fn parse_optional_datetime(
 ) -> AppResult<Option<DateTime<Utc>>> {
     match value {
         Some(raw) => {
+            if raw.trim().is_empty() {
+                return Ok(None);
+            }
             let parsed = DateTime::parse_from_rfc3339(raw).map_err(|_| {
                 AppError::Validation(format!("{} must be a valid RFC3339 datetime", field_name))
             })?;
@@ -490,6 +524,35 @@ fn parse_optional_datetime(
         }
         None => Ok(None),
     }
+}
+
+fn normalize_payment_method(value: Option<&str>) -> AppResult<Option<String>> {
+    let Some(raw) = value else {
+        return Ok(None);
+    };
+    let normalized = raw.trim();
+    if normalized.is_empty() {
+        return Ok(None);
+    }
+    let upper = normalized.to_uppercase();
+    if matches!(
+        upper.as_str(),
+        "CASH" | "CARD" | "BANK_TRANSFER" | "WALLET" | "UPI" | "CHEQUE"
+    ) {
+        Ok(Some(upper))
+    } else {
+        Err(AppError::Validation(
+            "paymentMethod must be one of CASH, CARD, BANK_TRANSFER, WALLET, UPI, or CHEQUE"
+                .into(),
+        ))
+    }
+}
+
+fn normalize_payment_ref(value: Option<&str>) -> Option<String> {
+    value
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
 }
 
 fn merge_action_note(existing: Option<&str>, note: Option<&str>, prefix: &str) -> Option<String> {
@@ -518,4 +581,31 @@ fn round_money(value: f64) -> f64 {
 
 fn round_qty(value: f64) -> f64 {
     (value * 1_000.0).round() / 1_000.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_optional_datetime_accepts_blank_string() {
+        let value = Some("  ".to_string());
+        let parsed = parse_optional_datetime(&value, "paidAt").expect("blank paidAt should be valid");
+        assert!(parsed.is_none());
+    }
+
+    #[test]
+    fn normalize_payment_method_accepts_known_value_case_insensitive() {
+        let value = normalize_payment_method(Some("card")).expect("card should be accepted");
+        assert_eq!(value.as_deref(), Some("CARD"));
+    }
+
+    #[test]
+    fn normalize_payment_method_rejects_unknown_value() {
+        let err = normalize_payment_method(Some("crypto")).expect_err("unknown method should fail");
+        match err {
+            AppError::Validation(message) => assert!(message.contains("paymentMethod")),
+            other => panic!("unexpected error type: {:?}", other),
+        }
+    }
 }

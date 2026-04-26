@@ -79,7 +79,7 @@ export function LoginPage() {
           <Input
             id="email"
             type="email"
-            placeholder="admin@garage360.io"
+            placeholder="admin@demo.com"
             {...register('email')}
             className={errors.email ? 'border-destructive' : ''}
           />
@@ -112,6 +112,9 @@ export function LoginPage() {
         </Button>
 
         <div className="text-center">
+          <p className="text-xs text-muted-foreground mb-2">
+            Use tenant credentials for app modules (example: admin@demo.com)
+          </p>
           <a
             href="/forgot-password"
             className="text-sm text-muted-foreground hover:text-foreground"

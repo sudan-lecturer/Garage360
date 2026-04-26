@@ -20,6 +20,7 @@ pub fn routes() -> Router<AppState> {
         .route("/inventory", post(create))
         .route("/inventory/search", get(search))
         .route("/inventory/low-stock", get(low_stock))
+        .route("/inventory/export", get(export))
         .route("/inventory/:id", get(show))
         .route("/inventory/:id", put(update))
         .route("/inventory/:id", delete(remove))
@@ -75,6 +76,18 @@ async fn low_stock(
 
     Ok(Json(
         service::list_low_stock(&tenant_db.pool, page, limit, search, category).await?,
+    ))
+}
+
+async fn export(
+    tenant_db: TenantDbPool,
+    _auth: AuthUser,
+    Query(query): Query<ListQuery>,
+) -> AppResult<Json<serde_json::Value>> {
+    let search = query.search.unwrap_or_default().trim().to_string();
+    let category = query.category.unwrap_or_default().trim().to_string();
+    Ok(Json(
+      service::export_inventory(&tenant_db.pool, search, category).await?
     ))
 }
 

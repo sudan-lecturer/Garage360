@@ -49,6 +49,7 @@ export function SearchInput({
       {internalValue && (
         <button
           type="button"
+          aria-label="Clear search"
           onClick={() => {
             setInternalValue('');
             onChange('');

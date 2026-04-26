@@ -95,7 +95,7 @@ describe('LoginPage', () => {
         { wrapper: createWrapper() }
       );
       
-      expect(screen.getByPlaceholderText('admin@garage360.io')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('admin@demo.com')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument();
     });
   });

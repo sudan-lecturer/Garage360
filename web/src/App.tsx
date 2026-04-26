@@ -12,18 +12,33 @@ const CustomerDetail = lazy(() => import('@/modules/customers/pages/CustomerDeta
 const CustomerForm = lazy(() => import('@/modules/customers/pages/CustomerForm'));
 const VehicleList = lazy(() => import('@/modules/vehicles/pages/VehicleList'));
 const VehicleDetail = lazy(() => import('@/modules/vehicles/pages/VehicleDetail'));
+const VehicleForm = lazy(() => import('@/modules/vehicles/pages/VehicleForm'));
 const JobList = lazy(() => import('@/modules/jobs/pages/JobList'));
 const JobDetail = lazy(() => import('@/modules/jobs/pages/JobDetail'));
 const JobForm = lazy(() => import('@/modules/jobs/pages/JobForm'));
 const IntakeFlow = lazy(() => import('@/modules/jobs/pages/IntakeFlow'));
 const InventoryList = lazy(() => import('@/modules/inventory/pages/InventoryList'));
+const InventoryDetail = lazy(() => import('@/modules/inventory/pages/InventoryDetail'));
+const InventoryForm = lazy(() => import('@/modules/inventory/pages/InventoryForm'));
 const POList = lazy(() => import('@/modules/purchases/pages/POList'));
+const POCreate = lazy(() => import('@/modules/purchases/pages/POCreate'));
 const InvoiceList = lazy(() => import('@/modules/billing/pages/InvoiceList'));
+const InvoiceDetail = lazy(() => import('@/modules/billing/pages/InvoiceDetail'));
+const InvoiceCreate = lazy(() => import('@/modules/billing/pages/InvoiceCreate'));
 const DVITemplateList = lazy(() => import('@/modules/dvi/pages/DVITemplateList'));
+const DVITemplateEditor = lazy(() => import('@/modules/dvi/pages/DVITemplateEditor'));
+const DVIResultCreate = lazy(() => import('@/modules/dvi/pages/DVIResultCreate'));
+const DVIResultDetail = lazy(() => import('@/modules/dvi/pages/DVIResultDetail'));
 const AssetList = lazy(() => import('@/modules/assets/pages/AssetList'));
+const AssetCreate = lazy(() => import('@/modules/assets/pages/AssetCreate'));
 const EmployeeList = lazy(() => import('@/modules/hr/pages/EmployeeList'));
+const EmployeeDetail = lazy(() => import('@/modules/hr/pages/EmployeeDetail'));
 const Settings = lazy(() => import('@/modules/settings/pages/Settings'));
+const UserManagement = lazy(() => import('@/modules/settings/pages/UserManagement'));
+const RoleManagement = lazy(() => import('@/modules/settings/pages/RoleManagement'));
 const SuperAdminTenants = lazy(() => import('@/modules/super-admin/pages/Tenants'));
+const ReportsDashboard = lazy(() => import('@/modules/reports/pages/ReportsDashboard'));
+const QuoteCreate = lazy(() => import('@/modules/jobs/pages/QuoteCreate'));
 
 function PageLoader() {
   return (
@@ -41,7 +56,7 @@ export default function App() {
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/forgot-password" element={<div>Forgot Password</div>} />
+          <Route path="/forgot-password" element={<Navigate to="/login" replace />} />
         </Route>
 
         <Route
@@ -56,31 +71,37 @@ export default function App() {
           <Route path="/customers/:id" element={<CustomerDetail />} />
           <Route path="/customers/:id/edit" element={<CustomerForm />} />
           <Route path="/vehicles" element={<VehicleList />} />
-          <Route path="/vehicles/new" element={<div>New Vehicle</div>} />
+          <Route path="/vehicles/new" element={<VehicleForm />} />
           <Route path="/vehicles/:id" element={<VehicleDetail />} />
-          <Route path="/vehicles/:id/edit" element={<div>Edit Vehicle</div>} />
+          <Route path="/vehicles/:id/edit" element={<VehicleForm />} />
           <Route path="/jobs" element={<JobList />} />
           <Route path="/jobs/new" element={<JobForm />} />
           <Route path="/jobs/:id" element={<JobDetail />} />
           <Route path="/jobs/:id/edit" element={<JobForm />} />
-          <Route path="/jobs/:id/approve" element={<div>Approve Job</div>} />
-          <Route path="/jobs/:id/qa" element={<div>QA Job</div>} />
+          <Route path="/jobs/:id/approve" element={<QuoteCreate />} />
+          <Route path="/jobs/:id/qa" element={<Navigate to="/jobs" replace />} />
           <Route path="/jobs/:id/intake" element={<IntakeFlow />} />
           <Route path="/inventory" element={<InventoryList />} />
-          <Route path="/inventory/new" element={<div>Add Inventory</div>} />
+          <Route path="/inventory/:id" element={<InventoryDetail />} />
+          <Route path="/inventory/new" element={<InventoryForm />} />
           <Route path="/purchases" element={<POList />} />
-          <Route path="/purchases/new" element={<div>New PO</div>} />
+          <Route path="/purchases/new" element={<POCreate />} />
           <Route path="/billing" element={<InvoiceList />} />
-          <Route path="/billing/new" element={<div>New Invoice</div>} />
+          <Route path="/billing/:id" element={<InvoiceDetail />} />
+          <Route path="/billing/new" element={<InvoiceCreate />} />
           <Route path="/dvi/templates" element={<DVITemplateList />} />
-          <Route path="/dvi/templates/:id" element={<div>DVI Template Detail</div>} />
-          <Route path="/dvi/templates/new" element={<div>DVI Template Editor</div>} />
+          <Route path="/dvi/templates/:id" element={<DVITemplateEditor />} />
+          <Route path="/dvi/templates/new" element={<DVITemplateEditor />} />
+          <Route path="/dvi/results/new" element={<DVIResultCreate />} />
+          <Route path="/dvi/results/:id" element={<DVIResultDetail />} />
           <Route path="/assets" element={<AssetList />} />
-          <Route path="/assets/new" element={<div>New Asset</div>} />
+          <Route path="/assets/new" element={<AssetCreate />} />
           <Route path="/hr/employees" element={<EmployeeList />} />
-          <Route path="/hr/employees/:id" element={<div>Employee Detail</div>} />
-          <Route path="/reports" element={<div className="p-6"><h1 className="text-2xl font-bold">Reports</h1></div>} />
+          <Route path="/hr/employees/:id" element={<EmployeeDetail />} />
+          <Route path="/reports" element={<ReportsDashboard />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/settings/users" element={<UserManagement />} />
+          <Route path="/settings/roles" element={<RoleManagement />} />
           <Route path="/control/tenants" element={<SuperAdminTenants />} />
         </Route>
 

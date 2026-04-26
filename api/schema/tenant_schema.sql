@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS job_card_approvals (
 
 CREATE TABLE IF NOT EXISTS intake_checklist_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     items JSONB NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -471,7 +471,7 @@ CREATE TABLE IF NOT EXISTS invoice_line_items (
 
 CREATE TABLE IF NOT EXISTS dvi_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     sections JSONB NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -510,7 +510,7 @@ CREATE INDEX idx_assets_category ON assets(category);
 
 CREATE TABLE IF NOT EXISTS asset_inspection_templates (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name TEXT NOT NULL,
+    name TEXT NOT NULL UNIQUE,
     items JSONB NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

@@ -26,7 +26,7 @@ export function PageHeader({
   return (
     <div className={cn('space-y-4 mb-6', className)}>
       {breadcrumbs && breadcrumbs.length > 0 && (
-        <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+        <nav className="flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
           <Link to="/" className="flex items-center hover:text-foreground">
             <Home className="h-3 w-3" />
           </Link>
@@ -47,7 +47,7 @@ export function PageHeader({
 
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+          <h1 className="text-2xl font-bold uppercase tracking-[0.04em] text-foreground">{title}</h1>
           {description && (
             <p className="text-muted-foreground mt-1">{description}</p>
           )}

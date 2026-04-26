@@ -42,22 +42,23 @@ export function MainLayout() {
 
   return (
     <div className="min-h-screen bg-background">
-      <nav className="fixed top-0 z-50 w-full bg-background border-b border-border">
+      <nav className="fixed top-0 z-50 w-full bg-surface border-b border-border">
         <div className="flex items-center justify-between px-4 h-16">
           <div className="flex items-center gap-4">
             <button
               className="lg:hidden"
               onClick={() => setSidebarOpen(!sidebarOpen)}
+              aria-label={sidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
             >
               {sidebarOpen ? <X /> : <Menu />}
             </button>
-            <h1 className="text-xl font-bold text-accent">Garage360</h1>
+            <h1 className="text-xl font-bold uppercase tracking-[0.08em] text-primary">Garage360</h1>
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden sm:block">
               {user?.name}
             </span>
-            <Button variant="ghost" size="sm" onClick={logout}>
+            <Button variant="ghost" size="sm" onClick={logout} aria-label="Log out">
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
@@ -66,7 +67,7 @@ export function MainLayout() {
 
       <aside
         className={cn(
-          'fixed top-16 left-0 z-40 w-64 h-[calc(100vh-4rem)] bg-background border-r border-border transition-transform lg:translate-x-0',
+          'fixed top-16 left-0 z-40 w-64 h-[calc(100vh-4rem)] bg-surface border-r border-border transition-transform lg:translate-x-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
@@ -77,10 +78,10 @@ export function MainLayout() {
               to={item.href}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                  'flex items-center gap-3 px-3 py-2 rounded-sm text-sm font-semibold uppercase tracking-wide transition-colors border-l-2',
                   isActive
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-muted-foreground hover:bg-surface-raised hover:text-foreground'
+                    ? 'bg-primary text-primary-foreground border-l-accent'
+                    : 'text-muted-foreground border-l-transparent hover:bg-surface-raised hover:text-foreground hover:border-l-border-hover'
                 )
               }
               onClick={() => setSidebarOpen(false)}
@@ -96,6 +97,14 @@ export function MainLayout() {
         <div
           className="fixed inset-0 z-30 bg-background/50 lg:hidden"
           onClick={() => setSidebarOpen(false)}
+          aria-label="Close sidebar overlay"
+          role="button"
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              setSidebarOpen(false);
+            }
+          }}
         />
       )}
 

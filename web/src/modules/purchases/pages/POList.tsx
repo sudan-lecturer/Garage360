@@ -1,7 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import api from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
+import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/page-header';
 import { LoadingSpinner } from '@/components/shared/loading';
 import { EmptyState } from '@/components/shared/empty-state';
@@ -9,29 +7,10 @@ import { SearchInput } from '@/components/shared/search-input';
 import { StatusBadge } from '@/components/shared/status-badge';
 import { Button } from '@/components/ui/button';
 import { Plus, ShoppingCart, ChevronRight } from 'lucide-react';
-
-interface PurchaseOrder {
-  id: string;
-  po_no: number | null;
-  supplier_id: string;
-  supplier_name: string;
-  status: string;
-  total_amount: string;
-  expected_delivery: string | null;
-  created_at: string;
-}
-
-function usePurchaseOrders(params?: { search?: string; status?: string; supplier_id?: string }) {
-  return useQuery({
-    queryKey: ['purchases', params],
-    queryFn: async () => {
-      const response = await api.get<{ data: PurchaseOrder[] }>('/v1/purchases', { params });
-      return response.data;
-    },
-  });
-}
+import { usePurchaseOrders } from '@/api/hooks/usePurchases';
 
 export default function POListPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   
@@ -77,7 +56,7 @@ export default function POListPage() {
       {error && <EmptyState icon="default" title="Error loading purchase orders" description="Please try again later" />}
       {!isLoading && !error && (!data?.data || data.data.length === 0) && (
         <EmptyState icon="search" title="No purchase orders found" description={search ? 'Try adjusting search' : 'No POs yet'}
-          action={{ label: 'New PO', onClick: () => {} }} />
+          action={{ label: 'New PO', onClick: () => navigate('/purchases/new') }} />
       )}
 
       {!isLoading && !error && data?.data && data.data.length > 0 && (
@@ -104,7 +83,7 @@ export default function POListPage() {
                     </Link>
                   </td>
                   <td className="p-3 text-sm">{po.supplier_name}</td>
-                  <td className="p-3"><StatusBadge variant={po.status.toLowerCase().replace('_', '_') as any} /></td>
+                  <td className="p-3"><StatusBadge variant={po.status.toLowerCase() as any} /></td>
                   <td className="p-3 text-sm text-right">-</td>
                   <td className="p-3 text-sm text-right font-medium">Rs. {parseFloat(po.total_amount).toLocaleString()}</td>
                   <td className="p-3 text-sm text-muted-foreground">{new Date(po.created_at).toLocaleDateString()}</td>

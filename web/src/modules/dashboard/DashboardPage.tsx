@@ -167,7 +167,7 @@ function BayWidget() {
           </div>
         ))}
       </div>
-      <div className="flex gap-3 mt-3 text-xs text-muted-foreground">
+      <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <span className="w-2 h-2 rounded-full bg-success" /> Free
         </span>
@@ -235,7 +235,7 @@ export default function DashboardPage() {
       />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {KPICard({
           title: 'Open Jobs',
           value: stats?.openJobs ?? 0,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/shared/page-header';
@@ -35,6 +35,7 @@ function useInvoices(params?: { status?: string; customer_id?: string; search?: 
 }
 
 export default function InvoiceListPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   
@@ -101,14 +102,14 @@ export default function InvoiceListPage() {
           description={search ? 'Try adjusting your search' : 'No invoices yet'}
           action={{
             label: 'Create Invoice',
-            onClick: () => {},
+            onClick: () => navigate('/billing/new'),
           }}
         />
       )}
 
       {/* Table */}
       {!isLoading && !error && data?.data && data.data.length > 0 && (
-        <div className="rounded-lg border border-border bg-surface overflow-x-auto">
+        <div className="rounded-sm border border-border bg-surface overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">

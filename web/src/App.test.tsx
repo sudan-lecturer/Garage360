@@ -49,7 +49,7 @@ describe('App Routing', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('admin@garage360.io')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('admin@demo.com')).toBeInTheDocument();
       });
     });
 
@@ -66,7 +66,7 @@ describe('App Routing', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('admin@garage360.io')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('admin@demo.com')).toBeInTheDocument();
       });
     });
 
@@ -83,7 +83,7 @@ describe('App Routing', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('admin@garage360.io')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('admin@demo.com')).toBeInTheDocument();
       });
     });
 
@@ -100,7 +100,7 @@ describe('App Routing', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('admin@garage360.io')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('admin@demo.com')).toBeInTheDocument();
       });
     });
   });
@@ -261,6 +261,110 @@ describe('App Routing', () => {
       });
     });
 
+    it('should render create purchase order route when authenticated', async () => {
+      render(
+        <MemoryRouter initialEntries={['/purchases/new']}>
+          <App />
+        </MemoryRouter>,
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /create purchase order/i })).toBeInTheDocument();
+      });
+    });
+
+    it('should render quote creation route when authenticated', async () => {
+      render(
+        <MemoryRouter initialEntries={['/jobs/1/approve']}>
+          <App />
+        </MemoryRouter>,
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /quote creation/i })).toBeInTheDocument();
+      });
+    });
+
+    it('should render user management route when authenticated', async () => {
+      render(
+        <MemoryRouter initialEntries={['/settings/users']}>
+          <App />
+        </MemoryRouter>,
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /user management/i })).toBeInTheDocument();
+      });
+    });
+
+    it('should render role management route when authenticated', async () => {
+      render(
+        <MemoryRouter initialEntries={['/settings/roles']}>
+          <App />
+        </MemoryRouter>,
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /role management/i })).toBeInTheDocument();
+      });
+    });
+
+    it('should render inventory detail route when authenticated', async () => {
+      render(
+        <MemoryRouter initialEntries={['/inventory/1']}>
+          <App />
+        </MemoryRouter>,
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /inventory detail/i })).toBeInTheDocument();
+      });
+    });
+
+    it('should render invoice detail route when authenticated', async () => {
+      render(
+        <MemoryRouter initialEntries={['/billing/1']}>
+          <App />
+        </MemoryRouter>,
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /invoice/i })).toBeInTheDocument();
+      });
+    });
+
+    it('should render dvi result entry route when authenticated', async () => {
+      render(
+        <MemoryRouter initialEntries={['/dvi/results/new']}>
+          <App />
+        </MemoryRouter>,
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /dvi result entry/i })).toBeInTheDocument();
+      });
+    });
+
+    it('should render dvi result detail route when authenticated', async () => {
+      render(
+        <MemoryRouter initialEntries={['/dvi/results/1']}>
+          <App />
+        </MemoryRouter>,
+        { wrapper: createWrapper() }
+      );
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: /dvi result detail/i })).toBeInTheDocument();
+      });
+    });
+
     it('should render settings when authenticated', async () => {
       render(
         <MemoryRouter initialEntries={['/settings']}>
@@ -291,7 +395,7 @@ describe('App Routing', () => {
       expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     });
 
-    it('should render forgot password page', () => {
+    it('should redirect forgot password page to login', async () => {
       mockedUseAuthStore.mockReturnValue({
         isAuthenticated: false,
       } as unknown as ReturnType<typeof useAuthStore>);
@@ -303,7 +407,9 @@ describe('App Routing', () => {
         { wrapper: createWrapper() }
       );
 
-      expect(screen.getByText('Forgot Password')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+      });
     });
 
     it('should allow access to login when not authenticated', () => {
@@ -361,7 +467,7 @@ describe('App Routing', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('admin@garage360.io')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('admin@demo.com')).toBeInTheDocument();
       });
     });
   });

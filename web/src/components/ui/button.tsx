@@ -8,13 +8,13 @@ import { cn } from '@/lib/utils';
    Following the 4px rule & atomic design
    ============================================ */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap font-semibold uppercase tracking-wide transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         /* Primary - Industrial Amber */
         primary: 
-          'bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.98] shadow-sm hover:shadow-md',
+          'bg-primary text-primary-foreground hover:bg-primary-hover active:scale-[0.99] border border-primary',
         
         /* Secondary - Slate */
         secondary: 
@@ -22,19 +22,19 @@ const buttonVariants = cva(
         
         /* Ghost - Minimal */
         ghost: 
-          'hover:bg-surface-raised text-foreground-muted hover:text-foreground',
+          'hover:bg-surface-raised text-foreground-muted hover:text-foreground border border-transparent hover:border-border',
         
         /* Outline */
         outline: 
-          'border-2 border-border bg-transparent hover:border-primary hover:text-primary',
+          'border border-border bg-transparent hover:border-primary hover:text-primary',
         
         /* Destructive */
         destructive: 
-          'bg-destructive text-white hover:bg-destructive/90 active:scale-[0.98]',
+          'bg-destructive text-white hover:bg-destructive/90 active:scale-[0.99] border border-destructive',
         
         /* Success */
         success: 
-          'bg-success text-white hover:bg-success/90 active:scale-[0.98]',
+          'bg-success text-white hover:bg-success/90 active:scale-[0.99] border border-success',
         
         /* Link */
         link: 
@@ -44,10 +44,10 @@ const buttonVariants = cva(
         /* 4px rule: heights are multiples of 4 */
         xs:    'h-8  px-3 text-xs rounded-sm',   /* 32px */
         sm:    'h-9  px-4 text-sm rounded-sm',   /* 36px */
-        md:    'h-10 px-4 text-sm rounded-md',  /* 40px - default */
-        lg:    'h-12 px-6 text-base rounded-md', /* 48px */
-        xl:    'h-14 px-8 text-lg rounded-lg',  /* 56px */
-        icon:  'h-10 w-10  rounded-md',         /* 44px min for touch */
+        md:    'h-10 px-4 text-sm rounded-sm',  /* 40px - default */
+        lg:    'h-12 px-6 text-base rounded-sm', /* 48px */
+        xl:    'h-14 px-8 text-lg rounded-md',  /* 56px */
+        icon:  'h-10 w-10  rounded-sm',         /* 44px min for touch */
         'icon-sm': 'h-8 w-8 rounded-sm',
         'icon-lg': 'h-12 w-12 rounded-lg',
       },
@@ -88,7 +88,17 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     disabled,
     ...props 
   }, ref) => {
-    const Comp = asChild ? Slot : 'button';
+    const fragmentChild =
+      React.isValidElement<{ children?: React.ReactNode }>(children) &&
+      children.type === React.Fragment
+        ? React.Children.toArray(children.props.children).find((child) =>
+            React.isValidElement(child)
+          )
+        : null;
+
+    const slottableChild = (fragmentChild as React.ReactNode) ?? children;
+    const useSlot = asChild && React.isValidElement(slottableChild);
+    const Comp = useSlot ? Slot : 'button';
 
     return (
       <Comp
@@ -124,6 +134,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
             </svg>
             <span>Loading...</span>
           </span>
+        ) : useSlot ? (
+          slottableChild
         ) : (
           <>
             {leftIcon && (

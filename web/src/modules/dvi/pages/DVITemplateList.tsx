@@ -1,6 +1,6 @@
 import api from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/page-header';
 import { LoadingSpinner } from '@/components/shared/loading';
 import { EmptyState } from '@/components/shared/empty-state';
@@ -26,6 +26,7 @@ function useDVITemplates() {
 }
 
 export default function DVITemplateListPage() {
+  const navigate = useNavigate();
   const { data, isLoading, error } = useDVITemplates();
 
   return (
@@ -45,11 +46,11 @@ export default function DVITemplateListPage() {
       {isLoading && <div className="py-12"><LoadingSpinner /></div>}
       {error && <EmptyState icon="default" title="Error loading templates" description="Please try again later" />}
       {!isLoading && !error && (!data?.data || data.data.length === 0) && (
-        <EmptyState icon="default" title="No DVI templates" description="Create your first template" action={{ label: 'New Template', onClick: () => {} }} />
+        <EmptyState icon="default" title="No DVI templates" description="Create your first template" action={{ label: 'New Template', onClick: () => navigate('/dvi/templates/new') }} />
       )}
 
       {!isLoading && !error && data?.data && data.data.length > 0 && (
-        <div className="rounded-lg border border-border bg-surface overflow-x-auto">
+        <div className="rounded-sm border border-border bg-surface overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">

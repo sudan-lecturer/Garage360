@@ -70,7 +70,7 @@ describe('Full Auth Flow Integration', () => {
         { wrapper: createWrapper() }
       );
 
-      expect(screen.getByPlaceholderText('admin@garage360.io')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('admin@demo.com')).toBeInTheDocument();
       expect(screen.getByPlaceholderText('••••••••')).toBeInTheDocument();
     });
   });
@@ -124,7 +124,7 @@ describe('Full Auth Flow Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('admin@garage360.io')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('admin@demo.com')).toBeInTheDocument();
       });
     });
 
@@ -141,7 +141,7 @@ describe('Full Auth Flow Integration', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getByPlaceholderText('admin@garage360.io')).toBeInTheDocument();
+        expect(screen.getByPlaceholderText('admin@demo.com')).toBeInTheDocument();
       });
     });
   });

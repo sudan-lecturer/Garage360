@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/shared/page-header';
@@ -35,6 +35,7 @@ function useInventory(params?: { search?: string; category?: string; low_stock?:
 }
 
 export default function InventoryListPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
@@ -96,12 +97,12 @@ export default function InventoryListPage() {
       {isLoading && <div className="py-12"><LoadingSpinner /></div>}
       {error && <EmptyState icon="default" title="Error loading inventory" description="Please try again later" />}
       {!isLoading && !error && (!data?.data || data.data.length === 0) && (
-        <EmptyState icon="search" title="No items found" description={search ? 'Try adjusting search' : 'Add your first item'} action={{ label: 'Add Item', onClick: () => {} }} />
+        <EmptyState icon="search" title="No items found" description={search ? 'Try adjusting search' : 'Add your first item'} action={{ label: 'Add Item', onClick: () => navigate('/inventory/new') }} />
       )}
 
       {/* Table */}
       {!isLoading && !error && data?.data && data.data.length > 0 && (
-        <div className="rounded-lg border border-border bg-surface overflow-x-auto">
+        <div className="rounded-sm border border-border bg-surface overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">

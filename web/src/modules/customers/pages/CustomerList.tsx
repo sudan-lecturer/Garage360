@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCustomers } from '@/api/hooks/useCustomers';
 import { PageHeader } from '@/components/shared/page-header';
 import { LoadingSpinner } from '@/components/shared/loading';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Plus, User, ChevronRight } from 'lucide-react';
 
 export default function CustomerListPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'INDIVIDUAL' | 'ORGANISATION' | ''>('');
   
@@ -74,13 +75,35 @@ export default function CustomerListPage() {
           description={search ? 'Try adjusting your search' : 'Add your first customer to get started'}
           action={{
             label: 'Add Customer',
-            onClick: () => {},
+            onClick: () => navigate('/customers/new'),
           }}
         />
       )}
 
       {!isLoading && !error && data?.data && data.data.length > 0 && (
-        <div className="rounded-lg border border-border bg-surface overflow-x-auto">
+        <div className="rounded-lg border border-border bg-surface">
+          <div className="space-y-3 p-3 sm:hidden">
+            {data.data.map((customer) => (
+              <Link
+                key={customer.id}
+                to={`/customers/${customer.id}`}
+                className="block rounded-md border border-border p-3 hover:bg-surface-raised"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">{customer.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {customer.type === 'ORGANISATION' ? 'Org' : 'Individual'}
+                    </p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">{customer.phone || '-'}</p>
+                <p className="text-xs text-muted-foreground">{customer.email || '-'}</p>
+              </Link>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto sm:block">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
@@ -127,6 +150,7 @@ export default function CustomerListPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

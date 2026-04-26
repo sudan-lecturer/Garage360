@@ -46,7 +46,7 @@ export default function JobDetailPage() {
           { label: job.job_number },
         ]}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="secondary" asChild>
               <Link to={`/jobs/${job.id}/edit`}>
                 <Edit className="h-4 w-4 mr-1" /> Edit
@@ -102,8 +102,8 @@ export default function JobDetailPage() {
                 <FileText className="h-5 w-5" /> Line Items
               </h3>
               {(job.status === 'QUOTE' || job.status === 'AUDIT') && (
-                <Button variant="outline" size="sm">
-                  Add Item
+                <Button variant="outline" size="sm" asChild>
+                  <Link to={`/jobs/${job.id}/approve`}>Add Item</Link>
                 </Button>
               )}
             </div>

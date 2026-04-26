@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '@/api/client';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '@/components/shared/page-header';
@@ -35,6 +35,7 @@ function useAssets(params?: { search?: string; category?: string; status?: strin
 }
 
 export default function AssetListPage() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const { data, isLoading, error } = useAssets({ search: search || undefined });
@@ -68,11 +69,11 @@ export default function AssetListPage() {
       {isLoading && <div className="py-12"><LoadingSpinner /></div>}
       {error && <EmptyState icon="default" title="Error loading assets" description="Please try again later" />}
       {!isLoading && !error && (!data?.data || data.data.length === 0) && (
-        <EmptyState icon="default" title="No assets found" description="Add your first asset" action={{ label: 'Add Asset', onClick: () => {} }} />
+        <EmptyState icon="default" title="No assets found" description="Add your first asset" action={{ label: 'Add Asset', onClick: () => navigate('/assets/new') }} />
       )}
 
       {!isLoading && !error && data?.data && data.data.length > 0 && (
-        <div className="rounded-lg border border-border bg-surface overflow-x-auto">
+        <div className="rounded-sm border border-border bg-surface overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
