@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useJob } from '@/api/hooks/useJobs';
+import {
+  useIntakeSnapshot,
+  useJob,
+  useSaveCustomerSignature,
+  useSaveIntakeChecklist,
+  useUpdateJob,
+  useUploadIntakePhoto,
+} from '@/api/hooks/useJobs';
 import { PageHeader } from '@/components/shared/page-header';
 import { LoadingSpinner } from '@/components/shared/loading';
 import { Button } from '@/components/ui/button';
@@ -23,25 +30,61 @@ export default function IntakeFlowPage() {
   const [step, setStep] = useState(1);
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [odometer, setOdometer] = useState('');
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [signature, setSignature] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<Array<{ file: File; preview: string }>>([]);
+  const [signatureFile, setSignatureFile] = useState<File | null>(null);
+  const [signedBy, setSignedBy] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   const { data: job, isLoading } = useJob(id!);
+  const intakeSnapshot = useIntakeSnapshot(id);
+  const updateJobMutation = useUpdateJob();
+  const checklistMutation = useSaveIntakeChecklist();
+  const uploadPhotoMutation = useUploadIntakePhoto();
+  const signatureMutation = useSaveCustomerSignature();
 
   const handleChecklistChange = (key: string, value: boolean) => {
     setChecklist(prev => ({ ...prev, [key]: value }));
   };
 
-  const handlePhotoCapture = () => {
-    // Simulated photo capture - in real app would use react-webcam
-    const newPhoto = `photo_${Date.now()}.jpg`;
-    setPhotos(prev => [...prev, newPhoto]);
-  };
-
   const handleSubmit = async () => {
-    console.log('Submitting intake:', { checklist, odometer, photos, signature });
-    // TODO: API call
-    navigate(`/jobs/${id}`);
+    if (!id) return;
+    setSubmitError('');
+    try {
+      await updateJobMutation.mutateAsync({
+        id,
+        odometer_in: odometer ? Number(odometer) : undefined,
+      } as any);
+
+      await checklistMutation.mutateAsync({
+        id,
+        data: checklist,
+        completed: true,
+      });
+
+      for (const entry of photos) {
+        await uploadPhotoMutation.mutateAsync({
+          id,
+          photoType: 'VEHICLE',
+          fileName: entry.file.name,
+          mimeType: entry.file.type || 'image/jpeg',
+          imageBase64: await fileToBase64(entry.file),
+        });
+      }
+
+      if (signatureFile) {
+        await signatureMutation.mutateAsync({
+          id,
+          signatureType: 'CUSTOMER',
+          signedBy: signedBy.trim() || 'Customer',
+          mimeType: signatureFile.type || 'image/png',
+          imageBase64: await fileToBase64(signatureFile),
+        });
+      }
+
+      navigate(`/jobs/${id}`);
+    } catch {
+      setSubmitError('Failed to save intake details. Please try again.');
+    }
   };
 
   if (isLoading) {
@@ -127,19 +170,26 @@ export default function IntakeFlowPage() {
           </h3>
           
           <div className="grid grid-cols-3 gap-4 mb-4">
-            {photos.map((_, idx) => (
+            {photos.map((photo, idx) => (
               <div key={idx} className="aspect-video rounded-md bg-surface-raised flex items-center justify-center">
-                <Camera className="h-8 w-8 text-muted-foreground" />
+                <img src={photo.preview} alt={`Vehicle ${idx + 1}`} className="h-full w-full object-cover rounded-md" />
               </div>
             ))}
-            <button
-              type="button"
-              onClick={handlePhotoCapture}
-              className="aspect-video rounded-md border-2 border-dashed border-border hover:border-accent flex items-center justify-center"
-            >
-              <Camera className="h-8 w-8 text-muted-foreground" />
-            </button>
           </div>
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={(event) => {
+              const files = Array.from(event.target.files ?? []);
+              const mapped = files.map((file) => ({
+                file,
+                preview: URL.createObjectURL(file),
+              }));
+              setPhotos((prev) => [...prev, ...mapped].slice(0, 10));
+            }}
+            className="mb-3 block w-full text-sm text-muted-foreground"
+          />
 
           <p className="text-sm text-muted-foreground mb-4">
             Take photos of vehicle condition (max 10 photos)
@@ -160,20 +210,35 @@ export default function IntakeFlowPage() {
           </h3>
           
           <div className="border-2 border-dashed border-border rounded-lg h-48 flex items-center justify-center mb-4">
-            {signature ? (
-              <p className="text-success">Signature captured</p>
+            {signatureFile || intakeSnapshot.data?.signature ? (
+              <p className="text-success">Signature ready</p>
             ) : (
-              <p className="text-muted-foreground">Customer signature area</p>
+              <p className="text-muted-foreground">Upload customer signature image</p>
             )}
           </div>
 
-          <div className="flex gap-2 mb-4">
-            <Button variant="outline" size="sm" onClick={() => setSignature('signed')}>
-              Sign Here
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => setSignature(null)}>
-              Clear
-            </Button>
+          <div className="mb-4 space-y-2">
+            <input
+              type="text"
+              value={signedBy}
+              onChange={(e) => setSignedBy(e.target.value)}
+              placeholder="Signed by"
+              className="h-10 w-full rounded-md border border-input bg-background px-3"
+            />
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(event) => {
+                const file = event.target.files?.[0] ?? null;
+                setSignatureFile(file);
+              }}
+              className="block w-full text-sm text-muted-foreground"
+            />
+            {intakeSnapshot.data?.signature && (
+              <p className="text-xs text-muted-foreground">
+                Existing signature already on file.
+              </p>
+            )}
           </div>
 
           <div className="flex justify-between">
@@ -206,14 +271,27 @@ export default function IntakeFlowPage() {
             <div className="p-4 rounded-md bg-surface-raised">
               <h4 className="font-medium mb-2">Signature</h4>
               <p className="text-sm text-muted-foreground">
-                {signature ? 'Signed' : 'Not signed'}
+                {signatureFile || intakeSnapshot.data?.signature ? 'Signed' : 'Not signed'}
               </p>
             </div>
           </div>
 
+          {submitError && (
+            <div className="mt-4 rounded-sm border border-destructive bg-destructive-muted p-3 text-sm text-destructive">
+              {submitError}
+            </div>
+          )}
           <div className="flex justify-between mt-6">
             <Button variant="outline" onClick={() => setStep(3)}>← Back</Button>
-            <Button onClick={handleSubmit}>
+            <Button
+              onClick={handleSubmit}
+              disabled={
+                updateJobMutation.isPending ||
+                checklistMutation.isPending ||
+                uploadPhotoMutation.isPending ||
+                signatureMutation.isPending
+              }
+            >
               <Save className="h-4 w-4 mr-1" /> Complete Intake
             </Button>
           </div>
@@ -221,4 +299,13 @@ export default function IntakeFlowPage() {
       )}
     </div>
   );
+}
+
+async function fileToBase64(file: File): Promise<string> {
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error('File read failed'));
+    reader.readAsDataURL(file);
+  });
 }

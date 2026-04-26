@@ -18,6 +18,77 @@ pub struct CustomerResponse {
     pub name: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct VehicleSummaryResponse {
+    pub id: String,
+    pub registration_no: String,
+    pub brand: String,
+    pub model: String,
+    pub year: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct JobSummaryResponse {
+    pub id: String,
+    pub job_no: Option<i32>,
+    pub status: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InvoiceSummaryResponse {
+    pub id: String,
+    pub invoice_no: Option<i32>,
+    pub status: String,
+    pub total_amount: String,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FinancialSnapshotResponse {
+    pub total_invoices: i64,
+    pub total_spend: String,
+    pub outstanding_balance: String,
+    pub paid_invoices: i64,
+    pub last_invoice_at: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServiceChronicleEntry {
+    pub id: String,
+    pub kind: String,
+    pub reference_no: String,
+    pub status: String,
+    pub occurred_at: String,
+    pub summary: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerProfileResponse {
+    pub id: String,
+    pub customer_type: String,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
+    pub company_name: Option<String>,
+    pub email: Option<String>,
+    pub phone: String,
+    pub address: Option<String>,
+    pub created_at: Option<String>,
+    pub name: String,
+    pub tier: String,
+    pub financial_snapshot: FinancialSnapshotResponse,
+    pub service_chronicle: Vec<ServiceChronicleEntry>,
+    pub vehicles: Vec<VehicleSummaryResponse>,
+    pub jobs: Vec<JobSummaryResponse>,
+    pub invoices: Vec<InvoiceSummaryResponse>,
+}
+
 #[derive(Debug, FromRow, Serialize)]
 pub struct CustomerRow {
     pub id: String,
@@ -29,6 +100,51 @@ pub struct CustomerRow {
     pub phone: String,
     pub address: Option<String>,
     pub created_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, FromRow)]
+pub struct VehicleSummaryRow {
+    pub id: String,
+    pub registration_no: String,
+    pub make: String,
+    pub model: String,
+    pub year: Option<i32>,
+}
+
+#[derive(Debug, FromRow)]
+pub struct JobSummaryRow {
+    pub id: String,
+    pub job_no: Option<i32>,
+    pub status: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, FromRow)]
+pub struct InvoiceSummaryRow {
+    pub id: String,
+    pub invoice_no: Option<i32>,
+    pub status: String,
+    pub total_amount: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, FromRow)]
+pub struct FinancialSnapshotRow {
+    pub total_invoices: i64,
+    pub total_spend: String,
+    pub outstanding_balance: String,
+    pub paid_invoices: i64,
+    pub last_invoice_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, FromRow)]
+pub struct ServiceChronicleRow {
+    pub id: String,
+    pub kind: String,
+    pub reference_no: String,
+    pub status: String,
+    pub occurred_at: chrono::DateTime<chrono::Utc>,
+    pub summary: String,
 }
 
 impl From<CustomerRow> for CustomerResponse {
@@ -78,6 +194,7 @@ pub struct ListQuery {
     pub page: i64,
     pub limit: i64,
     pub search: Option<String>,
+    pub customer_type: Option<String>,
 }
 
 impl Default for ListQuery {
@@ -86,6 +203,7 @@ impl Default for ListQuery {
             page: 1,
             limit: 20,
             search: None,
+            customer_type: None,
         }
     }
 }

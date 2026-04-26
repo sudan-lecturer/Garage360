@@ -7,7 +7,8 @@ use crate::errors::{AppError, AppResult};
 use super::types::{
     ActivityRow, ApprovalRow, ApprovalRequest, BaySummaryRow, ChangeRequestItemRequest,
     ChangeRequestItemRow, ChangeRequestRow, CreateChangeRequestRequest, CreateJobRequest,
-    JobItemRequest, JobItemRow, JobRow, LockedJobRow, UserSummaryRow,
+    CustomerSignatureRow, IntakeChecklistRow, IntakePhotoRow, JobItemRequest, JobItemRow, JobRow,
+    LockedJobRow, UserSummaryRow,
 };
 
 const JOB_SELECT: &str = r#"
@@ -1053,6 +1054,212 @@ pub async fn find_conflicting_job_in_bay(
     .bind(bay_id)
     .bind(current_job_id)
     .fetch_optional(&mut **tx)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn get_intake_checklist(pool: &PgPool, job_id: &str) -> AppResult<Option<IntakeChecklistRow>> {
+    sqlx::query_as::<_, IntakeChecklistRow>(
+        r#"
+        SELECT
+            id::text AS id,
+            template_id::text AS template_id,
+            data,
+            completed_at,
+            created_at
+        FROM intake_checklists
+        WHERE job_card_id = $1::uuid
+        "#,
+    )
+    .bind(job_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn upsert_intake_checklist(
+    pool: &PgPool,
+    job_id: &str,
+    template_id: Option<&str>,
+    data: &Value,
+    completed: bool,
+) -> AppResult<IntakeChecklistRow> {
+    sqlx::query_as::<_, IntakeChecklistRow>(
+        r#"
+        INSERT INTO intake_checklists (job_card_id, template_id, data, completed_at)
+        VALUES (
+            $1::uuid,
+            CASE WHEN $2 = '' THEN NULL ELSE $2::uuid END,
+            $3::jsonb,
+            CASE WHEN $4 THEN NOW() ELSE NULL END
+        )
+        ON CONFLICT (job_card_id) DO UPDATE SET
+            template_id = CASE WHEN $2 = '' THEN intake_checklists.template_id ELSE $2::uuid END,
+            data = EXCLUDED.data,
+            completed_at = CASE WHEN $4 THEN NOW() ELSE intake_checklists.completed_at END
+        RETURNING
+            id::text AS id,
+            template_id::text AS template_id,
+            data,
+            completed_at,
+            created_at
+        "#,
+    )
+    .bind(job_id)
+    .bind(template_id.unwrap_or(""))
+    .bind(data)
+    .bind(completed)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn insert_intake_photo(
+    pool: &PgPool,
+    job_id: &str,
+    photo_type: &str,
+    file_path: &str,
+    thumbnail_path: Option<&str>,
+    uploaded_by: &str,
+) -> AppResult<IntakePhotoRow> {
+    sqlx::query_as::<_, IntakePhotoRow>(
+        r#"
+        INSERT INTO intake_photos (job_card_id, photo_type, file_path, thumbnail_path, uploaded_by)
+        VALUES ($1::uuid, $2, $3, $4, $5::uuid)
+        RETURNING
+            id::text AS id,
+            photo_type,
+            file_path,
+            thumbnail_path,
+            uploaded_by::text AS uploaded_by,
+            created_at
+        "#,
+    )
+    .bind(job_id)
+    .bind(photo_type)
+    .bind(file_path)
+    .bind(thumbnail_path)
+    .bind(uploaded_by)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn list_intake_photos(pool: &PgPool, job_id: &str) -> AppResult<Vec<IntakePhotoRow>> {
+    sqlx::query_as::<_, IntakePhotoRow>(
+        r#"
+        SELECT
+            id::text AS id,
+            photo_type,
+            file_path,
+            thumbnail_path,
+            uploaded_by::text AS uploaded_by,
+            created_at
+        FROM intake_photos
+        WHERE job_card_id = $1::uuid
+          AND file_deleted_at IS NULL
+        ORDER BY created_at ASC
+        "#,
+    )
+    .bind(job_id)
+    .fetch_all(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn find_intake_photo(pool: &PgPool, job_id: &str, photo_id: &str) -> AppResult<Option<IntakePhotoRow>> {
+    sqlx::query_as::<_, IntakePhotoRow>(
+        r#"
+        SELECT
+            id::text AS id,
+            photo_type,
+            file_path,
+            thumbnail_path,
+            uploaded_by::text AS uploaded_by,
+            created_at
+        FROM intake_photos
+        WHERE job_card_id = $1::uuid
+          AND id = $2::uuid
+          AND file_deleted_at IS NULL
+        "#,
+    )
+    .bind(job_id)
+    .bind(photo_id)
+    .fetch_optional(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn soft_delete_intake_photo(pool: &PgPool, job_id: &str, photo_id: &str) -> AppResult<u64> {
+    sqlx::query(
+        r#"
+        UPDATE intake_photos
+        SET file_deleted_at = NOW()
+        WHERE job_card_id = $1::uuid
+          AND id = $2::uuid
+          AND file_deleted_at IS NULL
+        "#,
+    )
+    .bind(job_id)
+    .bind(photo_id)
+    .execute(pool)
+    .await
+    .map(|result| result.rows_affected())
+    .map_err(AppError::Database)
+}
+
+pub async fn upsert_customer_signature(
+    pool: &PgPool,
+    job_id: &str,
+    signature_type: &str,
+    file_path: &str,
+    signed_by: &str,
+) -> AppResult<CustomerSignatureRow> {
+    sqlx::query_as::<_, CustomerSignatureRow>(
+        r#"
+        INSERT INTO customer_signatures (job_card_id, signature_type, file_path, signed_by, signed_at)
+        VALUES ($1::uuid, $2, $3, $4, NOW())
+        ON CONFLICT (job_card_id) DO UPDATE SET
+            signature_type = EXCLUDED.signature_type,
+            file_path = EXCLUDED.file_path,
+            signed_by = EXCLUDED.signed_by,
+            signed_at = NOW(),
+            file_deleted_at = NULL
+        RETURNING
+            id::text AS id,
+            signature_type,
+            file_path,
+            signed_by,
+            signed_at,
+            created_at
+        "#,
+    )
+    .bind(job_id)
+    .bind(signature_type)
+    .bind(file_path)
+    .bind(signed_by)
+    .fetch_one(pool)
+    .await
+    .map_err(AppError::Database)
+}
+
+pub async fn get_customer_signature(pool: &PgPool, job_id: &str) -> AppResult<Option<CustomerSignatureRow>> {
+    sqlx::query_as::<_, CustomerSignatureRow>(
+        r#"
+        SELECT
+            id::text AS id,
+            signature_type,
+            file_path,
+            signed_by,
+            signed_at,
+            created_at
+        FROM customer_signatures
+        WHERE job_card_id = $1::uuid
+          AND file_deleted_at IS NULL
+        "#,
+    )
+    .bind(job_id)
+    .fetch_optional(pool)
     .await
     .map_err(AppError::Database)
 }

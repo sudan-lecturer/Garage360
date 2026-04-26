@@ -1,8 +1,13 @@
 use axum::{
     extract::{Path, Query},
+    http::{header, StatusCode},
+    response::IntoResponse,
     routing::{delete, get, post, put},
-    Json, Router,
+    Json, Router, extract::State,
 };
+use chrono::Utc;
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 use validator::Validate;
 
 use crate::errors::{AppError, AppResult};
@@ -14,8 +19,8 @@ use super::{
     types::{
         AddNoteRequest, ApprovalRequest, AssignBayRequest, AssignUserRequest, CancelJobRequest,
         CreateChangeRequestRequest, CreateJobRequest, EstimatedCompletionRequest, JobItemRequest,
-        ListQuery, QaSubmitRequest, TransitionJobRequest, UpdateChangeRequestRequest,
-        UpdateJobRequest,
+        ListQuery, QaSubmitRequest, TransitionJobRequest, UpdateChangeRequestRequest, UpdateJobRequest,
+        UploadIntakePhotoRequest, UpsertCustomerSignatureRequest, UpsertIntakeChecklistRequest,
     },
 };
 
@@ -47,6 +52,14 @@ pub fn routes() -> Router<AppState> {
         .route("/jobs/:id/qa/context", get(qa_context))
         .route("/jobs/:id/qa/submit", post(submit_qa))
         .route("/jobs/:id/qa/history", get(qa_history))
+        .route("/jobs/:id/intake", get(get_intake_snapshot))
+        .route("/jobs/:id/intake/checklist", put(save_intake_checklist))
+        .route("/jobs/:id/intake/photos", post(upload_intake_photo))
+        .route("/jobs/:id/intake/photos/:photo_id", delete(delete_intake_photo))
+        .route("/jobs/:id/intake/photos/:photo_id/file", get(get_intake_photo_file))
+        .route("/jobs/:id/intake/signature", put(save_signature))
+        .route("/jobs/:id/intake/signature/file", get(get_signature_file))
+        .route("/jobs/:id/intake/signed-urls", get(get_intake_signed_urls))
 }
 
 async fn list(
@@ -355,4 +368,138 @@ async fn qa_history(
     Path(id): Path<String>,
 ) -> AppResult<Json<Vec<super::types::QaHistoryResponse>>> {
     Ok(Json(service::get_qa_history(&tenant_db.pool, &id).await?))
+}
+
+async fn get_intake_snapshot(
+    tenant_db: TenantDbPool,
+    _auth: AuthUser,
+    Path(id): Path<String>,
+) -> AppResult<Json<super::types::IntakeSnapshotResponse>> {
+    Ok(Json(service::get_intake_snapshot(&tenant_db.pool, &id).await?))
+}
+
+#[derive(serde::Deserialize)]
+struct SignedMediaQuery {
+    exp: i64,
+    sig: String,
+}
+
+async fn save_intake_checklist(
+    tenant_db: TenantDbPool,
+    auth: AuthUser,
+    Path(id): Path<String>,
+    Json(req): Json<UpsertIntakeChecklistRequest>,
+) -> AppResult<Json<super::types::IntakeChecklistResponse>> {
+    Ok(Json(
+        service::upsert_intake_checklist(&tenant_db.pool, &id, &req, &auth.user_id).await?,
+    ))
+}
+
+async fn upload_intake_photo(
+    State(state): State<AppState>,
+    tenant_db: TenantDbPool,
+    auth: AuthUser,
+    Path(id): Path<String>,
+    Json(req): Json<UploadIntakePhotoRequest>,
+) -> AppResult<Json<super::types::IntakePhotoResponse>> {
+    req.validate()
+        .map_err(|err| AppError::Validation(err.to_string()))?;
+    Ok(Json(
+        service::upload_intake_photo(&state.storage, &tenant_db.pool, &id, &req, &auth.user_id).await?,
+    ))
+}
+
+async fn delete_intake_photo(
+    State(state): State<AppState>,
+    tenant_db: TenantDbPool,
+    auth: AuthUser,
+    Path((id, photo_id)): Path<(String, String)>,
+) -> AppResult<Json<serde_json::Value>> {
+    Ok(Json(
+        service::delete_intake_photo(&state.storage, &tenant_db.pool, &id, &photo_id, &auth.user_id).await?,
+    ))
+}
+
+async fn save_signature(
+    State(state): State<AppState>,
+    tenant_db: TenantDbPool,
+    _auth: AuthUser,
+    Path(id): Path<String>,
+    Json(req): Json<UpsertCustomerSignatureRequest>,
+) -> AppResult<Json<super::types::CustomerSignatureResponse>> {
+    req.validate()
+        .map_err(|err| AppError::Validation(err.to_string()))?;
+    Ok(Json(
+        service::upsert_customer_signature(&state.storage, &tenant_db.pool, &id, &req).await?,
+    ))
+}
+
+async fn get_intake_photo_file(
+    State(state): State<AppState>,
+    tenant_db: TenantDbPool,
+    Query(query): Query<SignedMediaQuery>,
+    Path((id, photo_id)): Path<(String, String)>,
+) -> AppResult<impl IntoResponse> {
+    verify_signed_media(
+        &state.config.jwt_secret,
+        &format!("intake-photo:{id}:{photo_id}:{}", query.exp),
+        &query.sig,
+        query.exp,
+    )?;
+    let path = service::get_intake_photo_file_path(&tenant_db.pool, &id, &photo_id).await?;
+    let bytes = state.storage.get_bytes(&path).await?;
+    Ok((
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "image/webp")],
+        bytes,
+    ))
+}
+
+async fn get_signature_file(
+    State(state): State<AppState>,
+    tenant_db: TenantDbPool,
+    Query(query): Query<SignedMediaQuery>,
+    Path(id): Path<String>,
+) -> AppResult<impl IntoResponse> {
+    verify_signed_media(
+        &state.config.jwt_secret,
+        &format!("intake-signature:{id}:{}", query.exp),
+        &query.sig,
+        query.exp,
+    )?;
+    let path = service::get_signature_file_path(&tenant_db.pool, &id).await?;
+    let bytes = state.storage.get_bytes(&path).await?;
+    Ok((
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "image/webp")],
+        bytes,
+    ))
+}
+
+async fn get_intake_signed_urls(
+    State(state): State<AppState>,
+    tenant_db: TenantDbPool,
+    _auth: AuthUser,
+    Path(id): Path<String>,
+) -> AppResult<Json<super::types::IntakeSignedUrlsResponse>> {
+    let exp = (Utc::now() + chrono::Duration::minutes(15)).timestamp();
+    Ok(Json(
+        service::get_intake_signed_urls(&tenant_db.pool, &id, exp, &state.config.jwt_secret).await?,
+    ))
+}
+
+fn verify_signed_media(secret: &str, payload: &str, signature_hex: &str, exp: i64) -> AppResult<()> {
+    if Utc::now().timestamp() > exp {
+        return Err(AppError::Unauthorized("Signed URL expired".into()));
+    }
+
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes())
+        .map_err(|_| AppError::Internal("Failed to initialize media signature".into()))?;
+    mac.update(payload.as_bytes());
+    let expected = hex::encode(mac.finalize().into_bytes());
+
+    if expected != signature_hex {
+        return Err(AppError::Unauthorized("Invalid signed URL signature".into()));
+    }
+    Ok(())
 }

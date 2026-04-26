@@ -22,9 +22,12 @@ const InventoryDetail = lazy(() => import('@/modules/inventory/pages/InventoryDe
 const InventoryForm = lazy(() => import('@/modules/inventory/pages/InventoryForm'));
 const POList = lazy(() => import('@/modules/purchases/pages/POList'));
 const POCreate = lazy(() => import('@/modules/purchases/pages/POCreate'));
+const PODetail = lazy(() => import('@/modules/purchases/pages/PODetail'));
 const InvoiceList = lazy(() => import('@/modules/billing/pages/InvoiceList'));
 const InvoiceDetail = lazy(() => import('@/modules/billing/pages/InvoiceDetail'));
 const InvoiceCreate = lazy(() => import('@/modules/billing/pages/InvoiceCreate'));
+const CouponManagement = lazy(() => import('@/modules/billing/pages/CouponManagement'));
+const PaymentConfirmation = lazy(() => import('@/modules/billing/pages/PaymentConfirmation'));
 const DVITemplateList = lazy(() => import('@/modules/dvi/pages/DVITemplateList'));
 const DVITemplateEditor = lazy(() => import('@/modules/dvi/pages/DVITemplateEditor'));
 const DVIResultCreate = lazy(() => import('@/modules/dvi/pages/DVIResultCreate'));
@@ -86,9 +89,12 @@ export default function App() {
           <Route path="/inventory/new" element={<InventoryForm />} />
           <Route path="/purchases" element={<POList />} />
           <Route path="/purchases/new" element={<POCreate />} />
+          <Route path="/purchases/:id" element={<PODetail />} />
           <Route path="/billing" element={<InvoiceList />} />
           <Route path="/billing/:id" element={<InvoiceDetail />} />
           <Route path="/billing/new" element={<InvoiceCreate />} />
+          <Route path="/billing/coupons" element={<CouponManagement />} />
+          <Route path="/billing/payment-confirmation" element={<PaymentConfirmation />} />
           <Route path="/dvi/templates" element={<DVITemplateList />} />
           <Route path="/dvi/templates/:id" element={<DVITemplateEditor />} />
           <Route path="/dvi/templates/new" element={<DVITemplateEditor />} />

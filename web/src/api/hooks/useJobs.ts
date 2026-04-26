@@ -80,6 +80,38 @@ export interface ChangeRequest {
   created_at: string;
 }
 
+export interface IntakeChecklist {
+  id: string;
+  templateId: string | null;
+  data: Record<string, boolean>;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface IntakePhoto {
+  id: string;
+  photoType: string;
+  filePath: string;
+  thumbnailPath: string | null;
+  uploadedBy: string | null;
+  createdAt: string;
+}
+
+export interface CustomerSignature {
+  id: string;
+  signatureType: string;
+  filePath: string;
+  signedBy: string | null;
+  signedAt: string | null;
+  createdAt: string;
+}
+
+export interface IntakeSnapshot {
+  checklist: IntakeChecklist | null;
+  photos: IntakePhoto[];
+  signature: CustomerSignature | null;
+}
+
 export function useJobs(params?: {
   status?: JobStatus;
   mechanic_id?: string;
@@ -188,6 +220,104 @@ export function useAddJobNote() {
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['job', variables.job_id] });
+    },
+  });
+}
+
+export function useIntakeSnapshot(id?: string) {
+  return useQuery({
+    queryKey: ['job', id, 'intake'],
+    enabled: Boolean(id),
+    queryFn: async () => {
+      const response = await api.get(`/v1/jobs/${id}/intake`);
+      return response.data as IntakeSnapshot;
+    },
+  });
+}
+
+export function useSaveIntakeChecklist() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      templateId,
+      data,
+      completed,
+    }: {
+      id: string;
+      templateId?: string;
+      data: Record<string, boolean>;
+      completed?: boolean;
+    }) => {
+      const response = await api.put(`/v1/jobs/${id}/intake/checklist`, {
+        templateId,
+        data,
+        completed,
+      });
+      return response.data as IntakeChecklist;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['job', variables.id, 'intake'] });
+    },
+  });
+}
+
+export function useUploadIntakePhoto() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      photoType,
+      fileName,
+      mimeType,
+      imageBase64,
+    }: {
+      id: string;
+      photoType: string;
+      fileName: string;
+      mimeType: string;
+      imageBase64: string;
+    }) => {
+      const response = await api.post(`/v1/jobs/${id}/intake/photos`, {
+        photoType,
+        fileName,
+        mimeType,
+        imageBase64,
+      });
+      return response.data as IntakePhoto;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['job', variables.id, 'intake'] });
+    },
+  });
+}
+
+export function useSaveCustomerSignature() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      signatureType,
+      signedBy,
+      mimeType,
+      imageBase64,
+    }: {
+      id: string;
+      signatureType: string;
+      signedBy: string;
+      mimeType: string;
+      imageBase64: string;
+    }) => {
+      const response = await api.put(`/v1/jobs/${id}/intake/signature`, {
+        signatureType,
+        signedBy,
+        mimeType,
+        imageBase64,
+      });
+      return response.data as CustomerSignature;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['job', variables.id, 'intake'] });
     },
   });
 }

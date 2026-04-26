@@ -11,11 +11,11 @@ import { Plus, User, ChevronRight } from 'lucide-react';
 export default function CustomerListPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'INDIVIDUAL' | 'ORGANISATION' | ''>('');
+  const [typeFilter, setTypeFilter] = useState<'INDIVIDUAL' | 'ORGANIZATION' | 'BOTH'>('BOTH');
   
   const { data, isLoading, error } = useCustomers({
     search: search || undefined,
-    type: typeFilter || undefined,
+    customer_type: typeFilter,
     limit: 20,
   });
 
@@ -39,18 +39,41 @@ export default function CustomerListPage() {
           <SearchInput
             value={search}
             onChange={setSearch}
-            placeholder="Search customers..."
+            placeholder="Search name, plate, phone, email, make/model..."
           />
         </div>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as '')}
-          className="h-10 rounded-md border border-input bg-background px-3 text-sm"
-        >
-          <option value="">All Types</option>
-          <option value="INDIVIDUAL">Individual</option>
-          <option value="ORGANISATION">Organisation</option>
-        </select>
+        <div className="flex items-center gap-4 rounded-sm border border-input bg-background px-3 py-2 text-sm">
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="customer_type"
+              value="BOTH"
+              checked={typeFilter === 'BOTH'}
+              onChange={() => setTypeFilter('BOTH')}
+            />
+            Both
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="customer_type"
+              value="INDIVIDUAL"
+              checked={typeFilter === 'INDIVIDUAL'}
+              onChange={() => setTypeFilter('INDIVIDUAL')}
+            />
+            Individual
+          </label>
+          <label className="inline-flex items-center gap-2">
+            <input
+              type="radio"
+              name="customer_type"
+              value="ORGANIZATION"
+              checked={typeFilter === 'ORGANIZATION'}
+              onChange={() => setTypeFilter('ORGANIZATION')}
+            />
+            Organizational
+          </label>
+        </div>
       </div>
 
       {/* Table */}
@@ -93,7 +116,7 @@ export default function CustomerListPage() {
                   <div>
                     <p className="font-medium">{customer.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {customer.type === 'ORGANISATION' ? 'Org' : 'Individual'}
+                      {customer.type === 'ORGANIZATION' ? 'Org' : 'Individual'}
                     </p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -131,8 +154,8 @@ export default function CustomerListPage() {
                     </Link>
                   </td>
                   <td className="p-3 text-sm">
-                    <span className={customer.type === 'ORGANISATION' ? 'text-accent' : 'text-muted-foreground'}>
-                      {customer.type === 'ORGANISATION' ? 'Org' : 'Individual'}
+                    <span className={customer.type === 'ORGANIZATION' ? 'text-accent' : 'text-muted-foreground'}>
+                      {customer.type === 'ORGANIZATION' ? 'Org' : 'Individual'}
                     </span>
                   </td>
                   <td className="p-3 text-sm text-muted-foreground">{customer.phone || '-'}</td>

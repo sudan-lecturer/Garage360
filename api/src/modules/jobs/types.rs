@@ -388,6 +388,40 @@ pub struct UpdateJobRequest {
     pub estimated_completion: Option<String>,
 }
 
+#[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertIntakeChecklistRequest {
+    pub template_id: Option<String>,
+    pub data: Value,
+    pub completed: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct UploadIntakePhotoRequest {
+    #[validate(length(min = 1))]
+    pub photo_type: String,
+    #[validate(length(min = 1))]
+    pub file_name: String,
+    #[validate(length(min = 1))]
+    pub mime_type: String,
+    #[validate(length(min = 1))]
+    pub image_base64: String,
+}
+
+#[derive(Debug, Deserialize, Validate)]
+#[serde(rename_all = "camelCase")]
+pub struct UpsertCustomerSignatureRequest {
+    #[validate(length(min = 1))]
+    pub signature_type: String,
+    #[validate(length(min = 1))]
+    pub signed_by: String,
+    #[validate(length(min = 1))]
+    pub mime_type: String,
+    #[validate(length(min = 1))]
+    pub image_base64: String,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct ListQuery {
@@ -411,6 +445,128 @@ impl Default for ListQuery {
 pub struct TransitionJobRequest {
     #[validate(length(min = 1))]
     pub status: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntakeChecklistResponse {
+    pub id: String,
+    pub template_id: Option<String>,
+    pub data: Value,
+    pub completed_at: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntakePhotoResponse {
+    pub id: String,
+    pub photo_type: String,
+    pub file_path: String,
+    pub thumbnail_path: Option<String>,
+    pub uploaded_by: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomerSignatureResponse {
+    pub id: String,
+    pub signature_type: String,
+    pub file_path: String,
+    pub signed_by: Option<String>,
+    pub signed_at: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntakeSnapshotResponse {
+    pub checklist: Option<IntakeChecklistResponse>,
+    pub photos: Vec<IntakePhotoResponse>,
+    pub signature: Option<CustomerSignatureResponse>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntakeSignedPhotoUrlResponse {
+    pub photo_id: String,
+    pub url: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IntakeSignedUrlsResponse {
+    pub photos: Vec<IntakeSignedPhotoUrlResponse>,
+    pub signature_url: Option<String>,
+    pub expires_at: String,
+}
+
+#[derive(Debug, FromRow)]
+pub struct IntakeChecklistRow {
+    pub id: String,
+    pub template_id: Option<String>,
+    pub data: Value,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, FromRow)]
+pub struct IntakePhotoRow {
+    pub id: String,
+    pub photo_type: String,
+    pub file_path: String,
+    pub thumbnail_path: Option<String>,
+    pub uploaded_by: Option<String>,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, FromRow)]
+pub struct CustomerSignatureRow {
+    pub id: String,
+    pub signature_type: String,
+    pub file_path: String,
+    pub signed_by: Option<String>,
+    pub signed_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<IntakeChecklistRow> for IntakeChecklistResponse {
+    fn from(row: IntakeChecklistRow) -> Self {
+        Self {
+            id: row.id,
+            template_id: row.template_id,
+            data: row.data,
+            completed_at: row.completed_at.map(|value| value.to_rfc3339()),
+            created_at: row.created_at.to_rfc3339(),
+        }
+    }
+}
+
+impl From<IntakePhotoRow> for IntakePhotoResponse {
+    fn from(row: IntakePhotoRow) -> Self {
+        Self {
+            id: row.id,
+            photo_type: row.photo_type,
+            file_path: row.file_path,
+            thumbnail_path: row.thumbnail_path,
+            uploaded_by: row.uploaded_by,
+            created_at: row.created_at.to_rfc3339(),
+        }
+    }
+}
+
+impl From<CustomerSignatureRow> for CustomerSignatureResponse {
+    fn from(row: CustomerSignatureRow) -> Self {
+        Self {
+            id: row.id,
+            signature_type: row.signature_type,
+            file_path: row.file_path,
+            signed_by: row.signed_by,
+            signed_at: row.signed_at.map(|value| value.to_rfc3339()),
+            created_at: row.created_at.to_rfc3339(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Validate)]

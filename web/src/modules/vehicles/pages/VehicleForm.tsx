@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AxiosError } from 'axios';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '@/components/shared/page-header';
 import { LoadingSpinner } from '@/components/shared/loading';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ const initialState = {
 
 export default function VehicleFormPage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const editing = Boolean(id);
   const navigate = useNavigate();
   const [errorMessage, setErrorMessage] = useState('');
@@ -26,6 +27,13 @@ export default function VehicleFormPage() {
   const vehicleQuery = useVehicle(id || '');
   const createMutation = useCreateVehicle();
   const updateMutation = useUpdateVehicle();
+
+  useEffect(() => {
+    if (editing) return;
+    const customerId = searchParams.get('customerId');
+    if (!customerId) return;
+    setFormState((state) => ({ ...state, customerId }));
+  }, [editing, searchParams]);
 
   useEffect(() => {
     if (!vehicleQuery.data || !editing) return;
@@ -117,7 +125,7 @@ export default function VehicleFormPage() {
             value={formState.make}
             onChange={(e) => setFormState((s) => ({ ...s, make: e.target.value }))}
             className="h-10 rounded-sm border border-input bg-background px-3 text-sm"
-            placeholder="Make"
+            placeholder="Brand"
           />
           <input
             value={formState.model}

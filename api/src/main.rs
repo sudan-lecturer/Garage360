@@ -32,6 +32,7 @@ pub struct AppState {
     pub control_db: DbPool,
     pub redis: Arc<redis::aio::ConnectionManager>,
     pub tenant_registry: Arc<TenantPoolRegistry>,
+    pub storage: Arc<storage::Storage>,
 }
 
 #[utoipa::path(
@@ -98,12 +99,14 @@ async fn main() -> anyhow::Result<()> {
     let config = AppConfig::load()?;
     let control_db = db::control::create_pool(&config.database_url).await?;
     let redis = db::redis::create_client(&config.redis_url).await?;
+    let storage = storage::Storage::new(&config).await?;
 
     let state = AppState {
         config,
         control_db,
         redis: Arc::new(redis),
         tenant_registry: Arc::new(TenantPoolRegistry::default()),
+        storage: Arc::new(storage),
     };
 
     let app = create_app(state.clone());

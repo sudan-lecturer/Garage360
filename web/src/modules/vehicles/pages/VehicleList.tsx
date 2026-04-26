@@ -93,7 +93,7 @@ export default function VehicleListPage() {
             <thead>
               <tr className="border-b border-border">
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">License Plate</th>
-                <th className="text-left p-3 text-sm font-medium text-muted-foreground">Make & Model</th>
+                <th className="text-left p-3 text-sm font-medium text-muted-foreground">Brand & Model</th>
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">Year</th>
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">Customer</th>
                 <th className="text-left p-3 text-sm font-medium text-muted-foreground">Last Service</th>

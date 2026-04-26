@@ -1,18 +1,26 @@
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use chrono::{DateTime, Utc};
+use image::codecs::webp::WebPEncoder;
+use image::imageops::FilterType;
+use image::{DynamicImage, GenericImageView, ImageEncoder};
 use serde_json::json;
 use sqlx::PgPool;
+use std::io::Cursor;
 
 use crate::errors::{AppError, AppResult};
 use crate::common::pagination::PaginationMeta;
+use crate::storage::Storage;
 
 use super::{
     repo,
     types::{
         ActivityResponse, AddNoteRequest, ApprovalRequest, ApprovalResponse, AssignBayRequest,
-        AssignUserRequest, CancelJobRequest, ChangeRequestResponse, CreateChangeRequestRequest,
-        CreateJobRequest, EstimatedCompletionRequest, JobItemRequest, JobItemResponse,
-        JobResponse, QaContextResponse, QaHistoryResponse, QaSubmitRequest,
-        TransitionJobRequest, UpdateChangeRequestRequest, UpdateJobRequest,
+        AssignUserRequest, CancelJobRequest, ChangeRequestResponse, CreateChangeRequestRequest, CreateJobRequest,
+        CustomerSignatureResponse, EstimatedCompletionRequest, IntakeChecklistResponse, IntakeSignedPhotoUrlResponse,
+        IntakeSignedUrlsResponse, IntakeSnapshotResponse, IntakePhotoResponse, JobItemRequest, JobItemResponse,
+        JobResponse, QaContextResponse, QaHistoryResponse, QaSubmitRequest, TransitionJobRequest,
+        UpdateChangeRequestRequest, UpdateJobRequest, UploadIntakePhotoRequest, UpsertCustomerSignatureRequest,
+        UpsertIntakeChecklistRequest,
     },
 };
 
@@ -676,6 +684,222 @@ pub async fn get_qa_history(pool: &PgPool, id: &str) -> AppResult<Vec<QaHistoryR
     Ok(history.into_iter().map(QaHistoryResponse::from).collect())
 }
 
+pub async fn get_intake_snapshot(pool: &PgPool, id: &str) -> AppResult<IntakeSnapshotResponse> {
+    ensure_job_exists(pool, id).await?;
+    let checklist = repo::get_intake_checklist(pool, id).await?.map(IntakeChecklistResponse::from);
+    let photos = repo::list_intake_photos(pool, id)
+        .await?
+        .into_iter()
+        .map(IntakePhotoResponse::from)
+        .collect();
+    let signature = repo::get_customer_signature(pool, id)
+        .await?
+        .map(CustomerSignatureResponse::from);
+
+    Ok(IntakeSnapshotResponse {
+        checklist,
+        photos,
+        signature,
+    })
+}
+
+pub async fn upsert_intake_checklist(
+    pool: &PgPool,
+    id: &str,
+    req: &UpsertIntakeChecklistRequest,
+    performed_by: &str,
+) -> AppResult<IntakeChecklistResponse> {
+    ensure_job_exists(pool, id).await?;
+    let row = repo::upsert_intake_checklist(
+        pool,
+        id,
+        req.template_id.as_deref(),
+        &req.data,
+        req.completed.unwrap_or(false),
+    )
+    .await?;
+
+    let mut tx = pool.begin().await.map_err(AppError::Database)?;
+    repo::insert_activity(
+        &mut tx,
+        id,
+        "intake.checklist_saved",
+        Some("Intake checklist updated".to_string()),
+        Some(json!({ "completed": req.completed.unwrap_or(false) })),
+        Some(performed_by),
+    )
+    .await?;
+    tx.commit().await.map_err(AppError::Database)?;
+
+    Ok(IntakeChecklistResponse::from(row))
+}
+
+pub async fn upload_intake_photo(
+    storage: &Storage,
+    pool: &PgPool,
+    id: &str,
+    req: &UploadIntakePhotoRequest,
+    performed_by: &str,
+) -> AppResult<IntakePhotoResponse> {
+    ensure_job_exists(pool, id).await?;
+    let input = decode_base64_image(&req.image_base64)?;
+    let dynamic = image::load_from_memory(&input)
+        .map_err(|_| AppError::Validation("Invalid image payload".into()))?;
+
+    let main = normalize_photo(dynamic.clone());
+    let thumb = normalize_thumbnail(dynamic);
+    let main_bytes = encode_webp(&main)?;
+    let thumb_bytes = encode_webp(&thumb)?;
+
+    let timestamp = Utc::now().timestamp_millis();
+    let safe_type = sanitize_segment(&req.photo_type);
+    let file_path = format!("intake/{id}/photo-{safe_type}-{timestamp}.webp");
+    let thumbnail_path = format!("intake/{id}/photo-{safe_type}-{timestamp}-thumb.webp");
+    storage.put_bytes(&file_path, main_bytes).await?;
+    storage.put_bytes(&thumbnail_path, thumb_bytes).await?;
+
+    let row = repo::insert_intake_photo(
+        pool,
+        id,
+        &req.photo_type,
+        &file_path,
+        Some(&thumbnail_path),
+        performed_by,
+    )
+    .await?;
+
+    Ok(IntakePhotoResponse::from(row))
+}
+
+pub async fn upsert_customer_signature(
+    storage: &Storage,
+    pool: &PgPool,
+    id: &str,
+    req: &UpsertCustomerSignatureRequest,
+) -> AppResult<CustomerSignatureResponse> {
+    ensure_job_exists(pool, id).await?;
+    let previous = repo::get_customer_signature(pool, id).await?;
+    let input = decode_base64_image(&req.image_base64)?;
+    let dynamic = image::load_from_memory(&input)
+        .map_err(|_| AppError::Validation("Invalid signature image payload".into()))?;
+    let normalized = normalize_signature(dynamic);
+    let encoded = encode_webp(&normalized)?;
+
+    let timestamp = Utc::now().timestamp_millis();
+    let signature_path = format!("intake/{id}/signature-{timestamp}.webp");
+    storage.put_bytes(&signature_path, encoded).await?;
+
+    let row = repo::upsert_customer_signature(
+        pool,
+        id,
+        &req.signature_type,
+        &signature_path,
+        &req.signed_by,
+    )
+    .await?;
+
+    if let Some(old) = previous {
+        if old.file_path != row.file_path {
+            let _ = storage.delete(&old.file_path).await;
+        }
+    }
+
+    Ok(CustomerSignatureResponse::from(row))
+}
+
+pub async fn get_intake_photo_file_path(pool: &PgPool, id: &str, photo_id: &str) -> AppResult<String> {
+    ensure_job_exists(pool, id).await?;
+    let photo = repo::find_intake_photo(pool, id, photo_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Intake photo not found".into()))?;
+    Ok(photo.file_path)
+}
+
+pub async fn get_signature_file_path(pool: &PgPool, id: &str) -> AppResult<String> {
+    ensure_job_exists(pool, id).await?;
+    let signature = repo::get_customer_signature(pool, id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Customer signature not found".into()))?;
+    Ok(signature.file_path)
+}
+
+pub async fn delete_intake_photo(
+    storage: &Storage,
+    pool: &PgPool,
+    id: &str,
+    photo_id: &str,
+    performed_by: &str,
+) -> AppResult<serde_json::Value> {
+    ensure_job_exists(pool, id).await?;
+    let photo = repo::find_intake_photo(pool, id, photo_id)
+        .await?
+        .ok_or_else(|| AppError::NotFound("Intake photo not found".into()))?;
+
+    let affected = repo::soft_delete_intake_photo(pool, id, photo_id).await?;
+    if affected == 0 {
+        return Err(AppError::NotFound("Intake photo not found".into()));
+    }
+
+    let _ = storage.delete(&photo.file_path).await;
+    if let Some(thumb) = &photo.thumbnail_path {
+        let _ = storage.delete(thumb).await;
+    }
+
+    let mut tx = pool.begin().await.map_err(AppError::Database)?;
+    repo::insert_activity(
+        &mut tx,
+        id,
+        "intake.photo_deleted",
+        Some("Intake photo deleted".to_string()),
+        Some(json!({ "photoId": photo_id })),
+        Some(performed_by),
+    )
+    .await?;
+    tx.commit().await.map_err(AppError::Database)?;
+
+    Ok(json!({ "deleted": true }))
+}
+
+pub async fn get_intake_signed_urls(
+    pool: &PgPool,
+    id: &str,
+    expires_unix: i64,
+    secret: &str,
+) -> AppResult<IntakeSignedUrlsResponse> {
+    ensure_job_exists(pool, id).await?;
+    let photos = repo::list_intake_photos(pool, id).await?;
+    let signature = repo::get_customer_signature(pool, id).await?;
+
+    let photo_urls = photos
+        .iter()
+        .map(|photo| IntakeSignedPhotoUrlResponse {
+            photo_id: photo.id.clone(),
+            url: format!(
+                "/api/v1/jobs/{id}/intake/photos/{}/file?exp={expires_unix}&sig={}",
+                photo.id,
+                sign_media(secret, &format!("intake-photo:{id}:{}:{expires_unix}", photo.id))
+            ),
+        })
+        .collect();
+
+    let signature_url = signature.as_ref().map(|_| {
+        format!(
+            "/api/v1/jobs/{id}/intake/signature/file?exp={expires_unix}&sig={}",
+            sign_media(secret, &format!("intake-signature:{id}:{expires_unix}"))
+        )
+    });
+
+    let expires_at = DateTime::<Utc>::from_timestamp(expires_unix, 0)
+        .map(|d| d.to_rfc3339())
+        .unwrap_or_else(|| Utc::now().to_rfc3339());
+
+    Ok(IntakeSignedUrlsResponse {
+        photos: photo_urls,
+        signature_url,
+        expires_at,
+    })
+}
+
 async fn get_change_request(
     pool: &PgPool,
     job_id: &str,
@@ -851,4 +1075,73 @@ fn parse_datetime(value: &str) -> AppResult<DateTime<Utc>> {
     chrono::DateTime::parse_from_rfc3339(value)
         .map(|datetime| datetime.with_timezone(&Utc))
         .map_err(|_| AppError::Validation("Expected RFC3339 datetime".into()))
+}
+
+fn decode_base64_image(input: &str) -> AppResult<Vec<u8>> {
+    let payload = input
+        .split(',')
+        .next_back()
+        .ok_or_else(|| AppError::Validation("Invalid base64 payload".into()))?;
+    STANDARD
+        .decode(payload)
+        .map_err(|_| AppError::Validation("Invalid base64 encoding".into()))
+}
+
+fn encode_webp(image: &DynamicImage) -> AppResult<Vec<u8>> {
+    let mut output = Cursor::new(Vec::new());
+    let rgba = image.to_rgba8();
+    let encoder = WebPEncoder::new_lossless(&mut output);
+    encoder
+        .write_image(&rgba, rgba.width(), rgba.height(), image::ExtendedColorType::Rgba8)
+        .map_err(|err| AppError::Internal(format!("Image encode failed: {err}")))?;
+    Ok(output.into_inner())
+}
+
+fn normalize_photo(image: DynamicImage) -> DynamicImage {
+    let (w, h) = image.dimensions();
+    if w <= 1920 && h <= 1920 {
+        image
+    } else if w >= h {
+        image.resize(1920, ((h as f32 / w as f32) * 1920.0).round() as u32, FilterType::Lanczos3)
+    } else {
+        image.resize(((w as f32 / h as f32) * 1920.0).round() as u32, 1920, FilterType::Lanczos3)
+    }
+}
+
+fn normalize_thumbnail(image: DynamicImage) -> DynamicImage {
+    let (w, h) = image.dimensions();
+    if w <= 480 && h <= 480 {
+        image
+    } else if w >= h {
+        image.resize(480, ((h as f32 / w as f32) * 480.0).round() as u32, FilterType::Lanczos3)
+    } else {
+        image.resize(((w as f32 / h as f32) * 480.0).round() as u32, 480, FilterType::Lanczos3)
+    }
+}
+
+fn normalize_signature(image: DynamicImage) -> DynamicImage {
+    let (w, h) = image.dimensions();
+    if w <= 1200 && h <= 600 {
+        image
+    } else {
+        image.resize(1200, 600, FilterType::Lanczos3)
+    }
+}
+
+fn sanitize_segment(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch } else { '-' })
+        .collect::<String>()
+        .trim_matches('-')
+        .to_lowercase()
+}
+
+fn sign_media(secret: &str, payload: &str) -> String {
+    use hmac::{Hmac, Mac};
+    use sha2::Sha256;
+
+    let mut mac = Hmac::<Sha256>::new_from_slice(secret.as_bytes()).expect("hmac key");
+    mac.update(payload.as_bytes());
+    hex::encode(mac.finalize().into_bytes())
 }

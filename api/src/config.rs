@@ -12,6 +12,7 @@ pub struct AppConfig {
     pub minio_endpoint: String,
     pub minio_access_key: String,
     pub minio_secret_key: String,
+    pub minio_bucket: String,
     #[serde(default)]
     pub cors_origins: Vec<String>,
     pub app_env: String,
@@ -26,6 +27,7 @@ impl AppConfig {
             .set_default("app_port", 8080)?
             .set_default("jwt_expiry_hours", 1)?
             .set_default("jwt_refresh_expiry_days", 7)?
+            .set_default("minio_bucket", "garage360-media")?
             .set_default("app_env", "development")?
             .set_default("cors_origins", Vec::<String>::new())?
             .build()?
@@ -49,6 +51,7 @@ mod tests {
             "minio_endpoint": "localhost:9000",
             "minio_access_key": "minioadmin",
             "minio_secret_key": "minioadmin",
+            "minio_bucket": "garage360-media",
             "cors_origins": ["http://localhost:3000"],
             "app_env": "test"
         }"#;
@@ -77,6 +80,7 @@ mod tests {
             "minio_endpoint": "localhost:9000",
             "minio_access_key": "key",
             "minio_secret_key": "key",
+            "minio_bucket": "garage360-media",
             "cors_origins": [],
             "app_env": "test"
         }"#;

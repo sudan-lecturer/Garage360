@@ -29,7 +29,7 @@ validator = { version = "0.18", features = ["derive"] }
 dotenvy = "0.15"
 config = "0.14"
 redis = { version = "0.25", features = ["tokio-comp", "connection-manager"] }
-object_store = "0.10"
+object_store = { version = "0.10", features = ["aws"] }
 utoipa = "3"
 lru = "0.12"
 aws-config = "1"
@@ -42,6 +42,10 @@ calamine = "0.25"
 rust_xlsxwriter = "0.44"
 printpdf = "0.7"
 image = "0.25"
+base64 = "0.22"
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
 zip = "2"
 tokio-cron-scheduler = "0.10"
 

@@ -11,7 +11,7 @@ import { ArrowLeft, Save } from 'lucide-react';
 
 const customerSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  type: z.enum(['INDIVIDUAL', 'ORGANISATION']),
+  type: z.enum(['INDIVIDUAL', 'ORGANIZATION']),
   email: z.string().email('Invalid email').optional().or(z.literal('')),
   phone: z.string().optional(),
   address: z.string().optional(),
@@ -24,7 +24,7 @@ export default function CustomerFormPage() {
   const navigate = useNavigate();
   const isEdit = Boolean(id);
 
-  const [type, setType] = useState<'INDIVIDUAL' | 'ORGANISATION'>('INDIVIDUAL');
+  const [type, setType] = useState<'INDIVIDUAL' | 'ORGANIZATION'>('INDIVIDUAL');
 
   const { register, handleSubmit, formState: { errors } } = useForm<CustomerForm>({
     resolver: zodResolver(customerSchema),
@@ -84,9 +84,9 @@ const createMutation = useCreateCustomer();
           </button>
           <button
             type="button"
-            onClick={() => setType('ORGANISATION')}
+            onClick={() => setType('ORGANIZATION')}
             className={`flex-1 py-2 rounded-md border text-sm font-medium transition-colors ${
-              type === 'ORGANISATION'
+              type === 'ORGANIZATION'
                 ? 'bg-accent text-accent-foreground border-accent'
                 : 'border-border bg-surface hover:border-accent'
             }`}
@@ -99,8 +99,8 @@ const createMutation = useCreateCustomer();
 
         <FormField
           name="name"
-          label={type === 'ORGANISATION' ? 'Organisation Name' : 'Full Name'}
-          placeholder={type === 'ORGANISATION' ? 'Enter organisation name' : 'Enter full name'}
+          label={type === 'ORGANIZATION' ? 'Organisation Name' : 'Full Name'}
+          placeholder={type === 'ORGANIZATION' ? 'Enter organisation name' : 'Enter full name'}
           register={register}
           errors={errors}
           required

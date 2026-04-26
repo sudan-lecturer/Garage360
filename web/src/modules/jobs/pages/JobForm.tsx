@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCustomers } from '@/api/hooks/useCustomers';
 import { useVehicles } from '@/api/hooks/useVehicles';
+import { useCreateJob, useUpdateJob } from '@/api/hooks/useJobs';
 import { PageHeader } from '@/components/shared/page-header';
 import { FormSelect, FormTextarea } from '@/components/shared/form-field';
 import { Button } from '@/components/ui/button';
@@ -36,6 +37,8 @@ export default function JobFormPage() {
   });
 
   const selectedCustomerId = watch('customer_id');
+  const createJobMutation = useCreateJob();
+  const updateJobMutation = useUpdateJob();
 
   // Fetch customers for dropdown
   const { data: customersData } = useCustomers({ limit: 100 });
@@ -50,13 +53,29 @@ export default function JobFormPage() {
   });
   const vehicles = vehiclesData?.data?.map((v: any) => ({
     value: v.id,
-    label: `${v.license_plate} - ${v.make} ${v.model}`,
+    label: `${v.license_plate ?? '-'} - ${v.make ?? ''} ${v.model ?? ''}`,
   })) || [];
 
   const onSubmit = async (data: JobForm) => {
-    console.log('Creating job:', data);
-    // TODO: API call to create job
-    navigate('/jobs');
+    const payload = {
+      customerId: data.customer_id,
+      vehicleId: data.vehicle_id,
+      complaint: data.complaint,
+    };
+
+    if (isEdit && id) {
+      updateJobMutation.mutate(
+        { id, ...payload } as any,
+        {
+          onSuccess: () => navigate(`/jobs/${id}`),
+        }
+      );
+      return;
+    }
+
+    createJobMutation.mutate(payload as any, {
+      onSuccess: () => navigate('/jobs'),
+    });
   };
 
   return (
@@ -168,8 +187,9 @@ export default function JobFormPage() {
           >
             <ArrowLeft className="h-4 w-4 mr-1" /> Cancel
           </Button>
-          <Button type="submit">
-            <Save className="h-4 w-4 mr-1" /> Create Job
+          <Button type="submit" disabled={createJobMutation.isPending || updateJobMutation.isPending}>
+            <Save className="h-4 w-4 mr-1" />
+            {isEdit ? (updateJobMutation.isPending ? 'Updating...' : 'Update Job') : (createJobMutation.isPending ? 'Creating...' : 'Create Job')}
           </Button>
         </div>
       </form>

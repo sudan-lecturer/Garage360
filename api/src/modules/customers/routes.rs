@@ -32,9 +32,10 @@ async fn list(
     let page = query.page.max(1);
     let limit = query.limit.clamp(1, 100);
     let search = query.search.unwrap_or_default();
+    let customer_type = query.customer_type.unwrap_or_default();
 
     Ok(Json(
-        service::list_customers(&tenant_db.pool, page, limit, search).await?,
+        service::list_customers(&tenant_db.pool, page, limit, search, customer_type).await?,
     ))
 }
 
@@ -44,14 +45,17 @@ async fn search(
     Query(query): Query<ListQuery>,
 ) -> AppResult<Json<Vec<super::types::CustomerResponse>>> {
     let search = query.search.unwrap_or_default();
-    Ok(Json(service::search_customers(&tenant_db.pool, search).await?))
+    let customer_type = query.customer_type.unwrap_or_default();
+    Ok(Json(
+        service::search_customers(&tenant_db.pool, search, customer_type).await?,
+    ))
 }
 
 async fn show(
     tenant_db: TenantDbPool,
     _auth: AuthUser,
     Path(id): Path<String>,
-) -> AppResult<Json<super::types::CustomerResponse>> {
+) -> AppResult<Json<super::types::CustomerProfileResponse>> {
     Ok(Json(service::get_customer(&tenant_db.pool, &id).await?))
 }
 
